@@ -1,0 +1,53 @@
+// Import core styles (provides `tp.$prefix`, `tp.cssVar(...)`).
+@use '../../node_modules/@tweakpane/core/lib/sass/tp';
+
+// The picker reuses Tweakpane's native colour-picker classes (tp-colv, tp-colpv,
+// tp-hplv, tp-aplv, tp-coltxtv, tp-colswv, tp-svpv …), so sizing, padding, the
+// hue rainbow, the alpha checkerboard and the mode dropdown all come from the
+// already-loaded Tweakpane CSS. Only the bespoke colour-area canvas + thumb
+// (which replace the native SV palette's internals) need styling here.
+
+// The colour-area canvas carries Tweakpane's own SV-canvas class (`tp-svpv_c`),
+// so its crosshair cursor and size come straight from the native rule —
+// `.tp-svpv_c { cursor: crosshair; display: block; height: container-unit-size*4;
+// width: 100% }` (@tweakpane/core view/_color-picker.scss). The thumb is
+// pointer-events:none, so the crosshair shows over it too and a click never
+// "misses" — exactly what the native picker does. We only add touch-action so
+// dragging the area doesn't scroll on touch.
+.area-canvas {
+	touch-action: none;
+}
+
+// The thumb reuses the native SV-marker class (tp-svpv_m) for its exact size,
+// stroke and radius; we only drive its position from Adam's --thumb-x/y. The
+// native marker centres on its left/top via a -50% margin, so no transform here.
+.area-thumb {
+	left: var(--thumb-x, 50%);
+	pointer-events: none;
+	top: var(--thumb-y, 50%);
+}
+
+// Texts row, stacked: the mode dropdown + the gamut readout share the top line,
+// and the channel numbers get a full-width line below — so the (sometimes wide)
+// values are never crammed up against the dropdown. The `.tp-coltxtv` qualifier
+// keeps the override above the inherited native single-row rule.
+.tp-coltxtv.wgc-coltxt {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.wgc-coltxt_head {
+	align-items: center;
+	display: flex;
+	justify-content: space-between;
+}
+
+// Smallest display gamut containing the colour (sRGB / P3 / wide). Uses the
+// native label foreground colour (the same low-emphasis tone as the picker's
+// labels), so it stays legible and follows any Tweakpane theme.
+.wgc-gamut {
+	color: tp.cssVar('label-fg');
+	padding-right: 4px;
+	white-space: nowrap;
+}

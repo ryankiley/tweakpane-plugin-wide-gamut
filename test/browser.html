@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>tweakpane-plugin-wide-gamut — test</title>
+	<style>
+		body { margin: 0; background: #1c1c1f; font-family: system-ui, sans-serif; }
+		.cols { display: flex; gap: 32px; padding: 24px; align-items: flex-start; }
+		/* Fixed-width columns so both panes match regardless of heading length
+		   (a collapsed pane otherwise shrinks to its column's content width). */
+		.col { width: 256px; }
+		.col h2 { color: #aaa; font: 600 12px/1 system-ui; margin: 0 0 8px; }
+		#log { color: #9aa; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; padding: 0 24px 24px; }
+	</style>
+</head>
+<body>
+	<div class="cols">
+		<div class="col"><h2>Native Tweakpane picker (reference)</h2><div id="native"></div></div>
+		<div class="col"><h2>wide-gamut plugin</h2><div id="oklch"></div></div>
+	</div>
+	<div id="log"></div>
+	<script type="module">
+		import {Pane} from '../node_modules/tweakpane/dist/tweakpane.min.js';
+		import * as WideGamutPlugin from '../dist/tweakpane-plugin-wide-gamut.js';
+
+		// Native reference pane — no plugin registered, so the built-in colour
+		// picker handles these. Uses hex/rgb the built-in understands.
+		const nativeParams = {
+			brand: '#4ba3f7',
+			accent: '#3a86ff',
+			muted: 'rgb(120, 120, 130)',
+		};
+		const nativePane = new Pane({container: document.getElementById('native'), title: 'native'});
+		Object.keys(nativeParams).forEach((k) => nativePane.addBinding(nativeParams, k));
+
+		// OKLCH plugin pane.
+		const params = {
+			brand: 'oklch(0.7 0.15 250)',
+			accent: '#3a86ff',
+			muted: 'rgb(120 120 130)',
+			glass: 'oklch(0.8 0.1 200 / 0.5)',
+		};
+		const pane = new Pane({container: document.getElementById('oklch'), title: 'wide-gamut'});
+		pane.registerPlugin(WideGamutPlugin);
+		const log = document.getElementById('log');
+		const render = () => { log.textContent = JSON.stringify(params, null, 2); };
+		Object.keys(params).forEach((k) => {
+			pane.addBinding(params, k).on('change', (ev) => { params[k] = ev.value; render(); });
+		});
+		render();
+
+		window.nativePane = nativePane;
+		window.pane = pane;
+	</script>
+</body>
+</html>
