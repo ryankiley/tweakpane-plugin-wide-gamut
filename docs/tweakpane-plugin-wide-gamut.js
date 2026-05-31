@@ -7760,11 +7760,11 @@ function extractColorString(trimmed) {
     if (parses(token)) {
         return token;
     }
-    // Last resort: a colour whose only fault is mixed separators — e.g. legacy
-    // commas combined with a `/ alpha` (`rgb(255, 0, 0 / 0.5)`), which the strict
-    // parser rejects. Normalise the function's commas to spaces and retry, so the
-    // real channels and the alpha are both kept. A genuinely missing channel
-    // collapses to nothing and still fails (too few channels) — we don't guess it.
+    // Last resort: a colour whose only fault is mixed separators — legacy commas
+    // plus a `/ alpha` (`rgb(255, 0, 0 / 0.5)`), which the strict parser rejects.
+    // Normalise the commas to spaces and retry, keeping the real channels and the
+    // alpha. A genuinely missing channel collapses away and still fails (too few
+    // channels) — it is never invented.
     const normalised = token.replace(/^([a-z]+)\((.*)\)$/i, (_m, fn, inner) => `${fn}(${inner.replace(/,/g, ' ')})`);
     return normalised !== token && parses(normalised) ? normalised : null;
 }
