@@ -1,6 +1,6 @@
 {
   "name": "tweakpane-plugin-wide-gamut",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Wide-gamut colour picker for Tweakpane v4 — the native picker UI with an sRGB/P3 gamut boundary, across 11 colour spaces (HEX, RGB, CSS, HSL, HWB, OKLCH, OKLab, LCH, Lab, P3, Rec2020). Dependency-free in-house colour engine.",
   "keywords": [
     "tweakpane",
