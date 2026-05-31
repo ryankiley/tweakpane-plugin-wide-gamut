@@ -1,9 +1,10 @@
 /*
- * The colour area — Adam Argyle's vendored gamut `AreaPicker` (MIT) wrapped as a
- * Tweakpane sub-controller. The plane is locked to the OKLCH L×C plane in every
- * mode — like Tweakpane's native SV square, which never changes with the mode
- * dropdown — so the thumb never jumps on a mode switch. The sRGB/P3 gamut
- * boundary is drawn in the wide-gamut modes (hidden in the sRGB-bound ones).
+ * The colour area — our gamut-aware `AreaPicker` wrapped as a Tweakpane
+ * sub-controller. It's an OKLCH lightness×chroma plane scaled to the mode's own
+ * gamut (see `areaStretch`): sRGB modes draw the sRGB plane (no lines), P3 draws
+ * the P3 plane with an sRGB line, and Rec2020 / the perceptual modes draw the
+ * Rec2020 plane with sRGB + P3 lines. (The thumb shifts when switching between
+ * gamuts of different width, since the chroma axis rescales.)
  */
 import {
 	type Value,
@@ -12,8 +13,8 @@ import {
 	ClassName,
 } from '@tweakpane/core';
 
-import {type EditMode, OklchColor, showsGamutBoundary} from './model/color.js';
-import {AreaPicker} from './vendor/area-picker.js';
+import {AreaPicker} from './area-picker.js';
+import {type EditMode, areaStretch, OklchColor} from './model/color.js';
 
 const cnSv = ClassName('svp');
 
@@ -75,11 +76,12 @@ export class AreaController {
 			}
 			this.sync_();
 		});
-		// The plane stays OKLCH; only the boundary visibility tracks the mode.
-		const syncBoundary = () =>
-			this.picker_.setShowBoundary(showsGamutBoundary(this.mode_.rawValue));
-		syncBoundary();
-		this.mode_.emitter.on('change', syncBoundary);
+		// The plane's gamut tracks the mode (sRGB / P3 / Rec2020); narrower gamuts
+		// are then drawn as inner boundary lines.
+		const syncGamut = () =>
+			this.picker_.setStretch(areaStretch(this.mode_.rawValue));
+		syncGamut();
+		this.mode_.emitter.on('change', syncGamut);
 
 		config.viewProps.handleDispose(() => {
 			this.picker_.unmount();

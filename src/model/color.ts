@@ -1,6 +1,6 @@
 /*
- * Internal colour model for the OKLCH plugin — a thin immutable wrapper over
- * colorjs.io/fn.
+ * Internal colour model for the OKLCH plugin — a thin immutable wrapper over the
+ * in-house colour engine in ../core.
  *
  * Canonical representation is OKLCH: it is the picker's working space and is
  * lossless across sRGB / Display-P3 / Rec2020, so dragging into the wide-gamut
@@ -9,19 +9,13 @@
  * round-trip in whatever shape the user supplied, and the verbatim source string
  * is returned unchanged until the colour is actually edited.
  */
-// Side-effect import: registers all colorjs colour spaces (sRGB, OKLCH, P3, …).
-import '../vendor/color.js';
+import type {Space} from '../core/convert.js';
+import {convert} from '../core/convert.js';
+import {inGamut as inGamutOf, toGamut} from '../core/gamut.js';
+import {parse} from '../core/parse.js';
+import {serialize} from '../core/serialize.js';
 
-import {
-	type ColorConstructor,
-	getColor,
-	inGamut as cjsInGamut,
-	parse,
-	serialize,
-	to,
-} from 'colorjs.io/fn';
-
-/** Editing modes offered by the mode dropdown. Each value is a colorjs space id
+/** Editing modes offered by the mode dropdown. Each value is an engine space id
  *  (so the mode↔space mapping is identity), except `hex` (sRGB as `#…`) and `css`
  *  (sRGB as legacy `rgba(r, g, b, a)`). */
 export type EditMode =
@@ -68,6 +62,17 @@ export function showsGamutBoundary(mode: EditMode): boolean {
 	return !SRGB_BOUND_MODES.includes(mode);
 }
 
+/** The gamut the colour area stretches to in a given mode — the mode's own:
+ *  sRGB for the sRGB-bound modes, P3 for P3, and Rec2020 for Rec2020 and the
+ *  (unbounded) perceptual modes, so OKLCH/OKLab/LCH/Lab can author the full wide
+ *  gamut. Every gamut narrower than this is drawn as an inner boundary line. */
+export function areaStretch(mode: EditMode): Space {
+	if (SRGB_BOUND_MODES.includes(mode)) {
+		return 'srgb';
+	}
+	return mode === 'p3' ? 'p3' : 'rec2020';
+}
+
 /** Hard cap on OKLCH chroma. Beyond any real display gamut (ProPhoto tops out
  *  near 0.49), so it rejects nonsense input (e.g. a typed chroma of 40000)
  *  without ever clipping a colour that could actually be shown. */
@@ -87,9 +92,9 @@ export const MODE_LABELS: Record<EditMode, string> = {
 	rec2020: 'Rec2020',
 };
 
-/** colorjs.io space id backing an edit mode (hex + css share the sRGB space). */
-export function modeSpaceId(mode: EditMode): string {
-	return mode === 'hex' || mode === 'css' ? 'srgb' : mode;
+/** Colour-engine space id backing an edit mode (hex + css share the sRGB space). */
+export function modeSpaceId(mode: EditMode): Space {
+	return mode === 'hex' || mode === 'css' ? 'srgb' : (mode as Space);
 }
 
 /** A single numeric channel input for a mode. `display = coord * scale`. */
@@ -99,7 +104,7 @@ export interface ChannelDescriptor {
 	min: number;
 	max: number;
 	step: number;
-	/** Multiplier from the canonical colorjs coord to the displayed value. */
+	/** Multiplier from the canonical engine coord to the displayed value. */
 	scale: number;
 }
 
@@ -176,8 +181,8 @@ export function digitsFor(step: number): number {
 }
 
 interface ColorFormat {
-	/** colorjs space id to serialise into for the binding. */
-	spaceId: string;
+	/** Colour-engine space id to serialise into for the binding. */
+	spaceId: Space;
 	isHex: boolean;
 	/** sRGB serialised as legacy `rgba(r, g, b, a)` — the "CSS" mode. */
 	isCss: boolean;
@@ -195,14 +200,9 @@ function clamp(x: number, lo: number, hi: number): number {
 	return Math.min(hi, Math.max(lo, x));
 }
 
-/** Does colorjs accept this exact string as a colour? */
+/** Does the engine accept this exact string as a colour? */
 function parses(s: string): boolean {
-	try {
-		getColor(parse(s));
-		return true;
-	} catch {
-		return false;
-	}
+	return parse(s) !== null;
 }
 
 /** First embedded colour token (a hex literal or a colour function) in text. */
@@ -271,15 +271,33 @@ export class OklchColor {
 		);
 	}
 
-	private oklchObj(withAlpha = true): ColorConstructor {
-		// Opaque colours use alpha 1 (not null): colorjs serialises a null alpha
-		// as `/ none` / hex `00`, which renders transparent. alpha 1 is omitted
-		// from the output by default, so this stays clean for opaque values.
-		return {
-			spaceId: 'oklch',
-			coords: [this.coords[0], this.coords[1], this.coords[2]],
-			alpha: withAlpha && this.format.hasAlpha ? this.alpha : 1,
-		};
+	/** Mutable copy of the canonical OKLCH coords (engine functions take a tuple). */
+	private oklch(): Coords3 {
+		return [this.coords[0], this.coords[1], this.coords[2]];
+	}
+
+	/** Alpha to serialise: opaque colours (or formats without alpha) use 1, which
+	 *  the serialiser omits — so the output stays clean. */
+	private outAlpha(withAlpha = true): number {
+		return withAlpha && this.format.hasAlpha ? this.alpha : 1;
+	}
+
+	/** Coords to serialise for output `space`: gamut-mapped for the bounded spaces
+	 *  (RGB + HSL/HWB), matching how the old colorjs serialise mapped them; raw for
+	 *  the unbounded perceptual spaces (OKLCH/OKLab/LCH/Lab). */
+	private outputCoords(space: Space): Coords3 {
+		switch (space) {
+			case 'srgb':
+			case 'p3':
+			case 'rec2020':
+			case 'prophoto-rgb':
+				return toGamut(this.oklch(), space);
+			case 'hsl':
+			case 'hwb':
+				return convert(toGamut(this.oklch(), 'srgb'), 'srgb', space);
+			default:
+				return convert(this.oklch(), 'oklch', space);
+		}
 	}
 
 	// ---- Parsing ------------------------------------------------------------
@@ -288,28 +306,26 @@ export class OklchColor {
 		const trimmed = css.trim();
 		// Clean input parses straight through (keeping its verbatim source format);
 		// a messy paste is sanitised — `extractColorString` recovers the colour from
-		// a CSS declaration / quoted value / `!important`, or rethrows on nonsense.
+		// a CSS declaration / quoted value / `!important`, or we throw on nonsense.
 		let source = trimmed;
-		let parsed;
-		try {
-			parsed = getColor(parse(trimmed));
-		} catch (err) {
+		let parsed = parse(trimmed);
+		if (!parsed) {
 			const cleaned = extractColorString(trimmed);
 			if (cleaned === null) {
-				throw err;
+				throw new Error(`unparseable colour: ${css}`);
 			}
 			source = cleaned;
-			parsed = getColor(parse(cleaned));
+			parsed = parse(cleaned);
+			if (!parsed) {
+				throw new Error(`unparseable colour: ${css}`);
+			}
 		}
 
-		const sid = parsed.space.id;
-		const k = sid === 'oklch' ? parsed : to(parsed, 'oklch');
-		const coords: Coords3 = [
-			num(k.coords[0]),
-			num(k.coords[1]),
-			num(k.coords[2]),
-		];
-		const alpha = parsed.alpha == null ? 1 : num(parsed.alpha);
+		const sid = parsed.space;
+		const k =
+			sid === 'oklch' ? parsed.coords : convert(parsed.coords, sid, 'oklch');
+		const coords: Coords3 = [num(k[0]), num(k[1]), num(k[2])];
+		const alpha = num(parsed.alpha);
 
 		const isHex = source.startsWith('#');
 		// Legacy comma syntax (`rgb(r, g, b)` / `rgba(r, g, b, a)`) is the CSS mode;
@@ -354,27 +370,27 @@ export class OklchColor {
 		}
 		const f = this.format;
 		if (f.isHex) {
-			// collapse:false keeps full-length hex (#ffffff, never #fff).
-			return serialize(to(this.oklchObj(), 'srgb', {inGamut: true}), {
+			// Always full-length hex (#ffffff, never #fff); 8 digits when alpha < 1.
+			return serialize(toGamut(this.oklch(), 'srgb'), 'srgb', this.outAlpha(), {
 				format: 'hex',
-				collapse: false,
 			});
 		}
 		if (f.isCss) {
 			// Legacy comma syntax, always 4-arg: `rgba(r, g, b, a)`.
-			const c = to(this.oklchObj(false), 'srgb', {inGamut: true});
-			const ch = (i: number) => Math.round(num(c.coords[i]) * 255);
+			const c = toGamut(this.oklch(), 'srgb');
+			const ch = (i: number) => Math.round(num(c[i]) * 255);
 			return `rgba(${ch(0)}, ${ch(1)}, ${ch(2)}, ${+this.alpha.toFixed(2)})`;
 		}
 		if (f.spaceId === 'srgb') {
-			// colorjs only emits percentage rgb; build 0–255 integers (the form
-			// people expect) instead.
-			const c = to(this.oklchObj(false), 'srgb', {inGamut: true});
-			const ch = (i: number) => Math.round(num(c.coords[i]) * 255);
+			// 0–255 integer rgb() (the form people expect), space-separated.
+			const c = toGamut(this.oklch(), 'srgb');
+			const ch = (i: number) => Math.round(num(c[i]) * 255);
 			const a = f.hasAlpha ? ` / ${+this.alpha.toFixed(3)}` : '';
 			return `rgb(${ch(0)} ${ch(1)} ${ch(2)}${a})`;
 		}
-		return serialize(to(this.oklchObj(), f.spaceId), {precision: 4});
+		return serialize(this.outputCoords(f.spaceId), f.spaceId, this.outAlpha(), {
+			precision: 4,
+		});
 	}
 
 	/**
@@ -439,26 +455,26 @@ export class OklchColor {
 
 	/** Full-gamut CSS (`oklch(…)`) for painting the swatch in modern browsers. */
 	displayCss(): string {
-		return serialize(to(this.oklchObj(), 'oklch'));
+		return serialize(this.oklch(), 'oklch', this.outAlpha());
 	}
 
 	/** Gamut-mapped sRGB hex, for the swatch fallback / hex field. Always
-	 *  full-length (`collapse:false` → `#ffffff`, never `#fff`). */
+	 *  full-length (`#ffffff`, never `#fff`). */
 	gamutCss(): string {
-		return serialize(to(this.oklchObj(), 'srgb', {inGamut: true}), {
+		return serialize(toGamut(this.oklch(), 'srgb'), 'srgb', this.outAlpha(), {
 			format: 'hex',
-			collapse: false,
 		});
 	}
 
 	// ---- Channel access -----------------------------------------------------
 
-	/** Canonical coords converted into `mode`'s colorjs space (NaN coalesced to 0). */
+	/** Canonical coords converted into `mode`'s space (NaN coalesced to 0). */
 	coordsIn(mode: EditMode): {coords: Coords3; alpha: number} {
 		const sid = modeSpaceId(mode);
-		const c = sid === 'oklch' ? this.oklchObj() : to(this.oklchObj(), sid);
+		const c =
+			sid === 'oklch' ? this.oklch() : convert(this.oklch(), 'oklch', sid);
 		return {
-			coords: [num(c.coords[0]), num(c.coords[1]), num(c.coords[2])],
+			coords: [num(c[0]), num(c[1]), num(c[2])],
 			alpha: this.alpha,
 		};
 	}
@@ -468,10 +484,11 @@ export class OklchColor {
 		const {coords} = this.coordsIn(mode);
 		return MODE_CHANNELS[mode].map((ch, i) => {
 			const v = coords[i] * ch.scale;
-			// Snap float noise to 0 (so an achromatic/gamut-edge channel never shows as
-			// "-0.00"), then clamp to the channel's range — matching the numeric inputs'
-			// range constraint, so the inputs and the collapsed readout agree.
-			return clamp(Math.abs(v) < 1e-4 ? 0 : v, ch.min, ch.max);
+			// Snap to 0 anything that rounds to 0 at the channel's display precision
+			// (half the step), so a tiny negative never renders as "-0.00"/"-0", then
+			// clamp to the channel's range — matching the numeric inputs' range
+			// constraint, so the inputs and the collapsed readout agree.
+			return clamp(Math.abs(v) < 0.5 * ch.step ? 0 : v, ch.min, ch.max);
 		});
 	}
 
@@ -485,9 +502,9 @@ export class OklchColor {
 		const {coords, alpha} = this.coordsIn(mode);
 		const next: Coords3 = [coords[0], coords[1], coords[2]];
 		next[index] = displayValue / MODE_CHANNELS[mode][index].scale;
-		const k = to({spaceId: sid, coords: next, alpha}, 'oklch');
+		const k = convert(next, sid, 'oklch');
 		return new OklchColor(
-			[num(k.coords[0]), num(k.coords[1]), num(k.coords[2])],
+			[num(k[0]), num(k[1]), num(k[2])],
 			alpha,
 			this.format,
 			null,
@@ -516,8 +533,8 @@ export class OklchColor {
 		if (this.format.isCss) {
 			return 'css';
 		}
-		// EditMode values are colorjs space ids, so a known space maps straight to
-		// its mode; anything else (a98-rgb, xyz, …) falls back to OKLCH.
+		// EditMode values are engine space ids, so a known space maps straight to
+		// its mode; anything else (prophoto-rgb, …) falls back to OKLCH.
 		const id = this.format.spaceId;
 		return (EDIT_MODES as string[]).includes(id) ? (id as EditMode) : 'oklch';
 	}
@@ -529,13 +546,13 @@ export class OklchColor {
 	 * wide-RGB (P3 / Rec2020) modes keep the colour untouched.
 	 */
 	withFormat(mode: EditMode): OklchColor {
+		// Switching into an sRGB-bound mode snaps a wider colour to the nearest
+		// in-sRGB one (so its channels stay meaningful); the area itself stays freely
+		// selectable, and the perceptual / wide-RGB modes keep the colour untouched.
 		let coords: Coords3 = [this.coords[0], this.coords[1], this.coords[2]];
 		if (SRGB_BOUND_MODES.includes(mode) && !this.inGamut('srgb')) {
-			const back = to(
-				to(this.oklchObj(false), 'srgb', {inGamut: true}),
-				'oklch',
-			);
-			coords = [num(back.coords[0]), num(back.coords[1]), num(back.coords[2])];
+			const back = convert(toGamut(this.oklch(), 'srgb'), 'srgb', 'oklch');
+			coords = [num(back[0]), num(back[1]), num(back[2])];
 		}
 		return new OklchColor(
 			coords,
@@ -567,9 +584,13 @@ export class OklchColor {
 
 	/** Adopt coords from an arbitrary CSS string (e.g. the area picker's onChange). */
 	withCss(css: string): OklchColor {
-		const k = to(getColor(parse(css)), 'oklch');
+		const p = parse(css);
+		if (!p) {
+			return this;
+		}
+		const k = convert(p.coords, p.space, 'oklch');
 		return new OklchColor(
-			[num(k.coords[0]), num(k.coords[1]), num(k.coords[2])],
+			[num(k[0]), num(k[1]), num(k[2])],
 			this.alpha,
 			this.format,
 			null,
@@ -579,12 +600,27 @@ export class OklchColor {
 	// ---- Misc ---------------------------------------------------------------
 
 	inGamut(gamut: Gamut): boolean {
-		return cjsInGamut(to(this.oklchObj(false), gamut));
+		return inGamutOf(this.oklch(), 'oklch', gamut);
 	}
 
 	/** sRGB and P3 are the only gamuts with real consumer displays, so the readout
-	 *  names those two and lumps anything beyond P3 as "wide". */
+	 *  names those two and lumps anything beyond P3 as "wide".
+	 *
+	 *  In an sRGB-bound mode (RGB/HEX/CSS/HSL/HWB) the binding value is always a
+	 *  gamut-mapped sRGB colour, so the readout is always sRGB — showing P3/wide
+	 *  there would contradict the mode (the area can still be dragged into the wide
+	 *  region, but the output clamps). In a wide mode it's the smallest containing
+	 *  gamut, except in the degenerate near-black/near-white tips, where the chroma
+	 *  is imperceptible and the displayed colour is ~black/white in every gamut —
+	 *  reported as sRGB so the label doesn't churn as you drag the dark/light edges. */
 	gamutLabel(): string {
+		if (!showsGamutBoundary(this.mode)) {
+			return 'sRGB';
+		}
+		const shown = toGamut(this.oklch(), 'srgb'); // colour as actually displayed
+		if (Math.max(...shown) < 0.03 || Math.min(...shown) > 0.97) {
+			return 'sRGB';
+		}
 		if (this.inGamut('srgb')) {
 			return 'sRGB';
 		}

@@ -1,6 +1,7 @@
 /.vscode/
 /.claude/
 /dist/
+/preview/
 /*.zip
 
 ### https://raw.github.com/github/gitignore//Node.gitignore
