@@ -19,7 +19,8 @@ import test from 'node:test';
 
 import Color from 'colorjs.io';
 
-import {convert} from '../src/core/convert.js';
+import {computeArea} from '../src/area-compute.js';
+import {convert, oklchGamutProbe} from '../src/core/convert.js';
 import type {Space, Vec3} from '../src/core/convert.js';
 import {inGamut, toGamut} from '../src/core/gamut.js';
 import {parse} from '../src/core/parse.js';
@@ -333,4 +334,196 @@ test('stress: messy declaration pastes recover the same colour as the clean form
 			assert.equal(got.gamutCss(), want, `"${m}" recovered the wrong colour`);
 		}
 	}
+});
+
+// ── parser: strict grammar + "recover real data, hold if none, never black" ──
+
+test('stress: malformed input rejects/recovers/holds — never NaN, never black', () => {
+	// (a) parse() is a strict CSS grammar: malformed function syntax is rejected,
+	// not silently misparsed (NaN→black) or alpha-dropped.
+	for (const bad of [
+		'rgb(255,0,0 / 0.5)', // mixed comma + slash (used to drop the alpha)
+		'rgb(255,,0)', // empty channel
+		'rgb(,,)',
+		'lab(? ? ?)', // non-numeric
+		'hsl(50% 50% 50%)', // % on a hue
+		'oklch(50% 0.1 200deg%)',
+		'rgb(255 0 0 / 0.5 / 0.3)', // two alpha separators
+		'rgb(1,2)', // too few
+		'rgb(1,2,3,4,5)', // too many
+		'oklch(0.5 0.1)', // missing channel
+		'color(srgb 1 0)', // color() missing a channel
+		'rgb()',
+		'rgb(1e 0 0)', // malformed exponent
+	]) {
+		assert.equal(parse(bad), null, `parse should reject "${bad}"`);
+	}
+
+	// (b) The model recovers the real colour (with its alpha) when only the
+	// separators are wrong — comparing against the clean-separator form.
+	for (const [messy, clean] of [
+		['rgb(255,0,0 / 0.5)', 'rgb(255 0 0 / 0.5)'],
+		['color: rgb(0, 128, 255 / 0.25);', 'rgb(0 128 255 / 0.25)'],
+		['hsl(120, 50%, 50% / 0.8)', 'hsl(120 50% 50% / 0.8)'],
+		['oklch(0.7, 0.1, 200 / 0.4)', 'oklch(0.7 0.1 200 / 0.4)'],
+	] as const) {
+		const got = OklchColor.tryFromString(messy);
+		const ref = OklchColor.tryFromString(clean);
+		assert.ok(got && ref, `should recover "${messy}"`);
+		assert.equal(got.gamutCss(), ref.gamutCss(), `"${messy}" recovered a different colour`);
+		assert.ok(got.hasAlpha, `"${messy}" lost its alpha`);
+	}
+
+	// (c) Genuinely missing/garbage data holds the current value (null) rather
+	// than inventing a channel or falling to black.
+	for (const empty of ['rgb(,,)', 'rgb(255,,0)', 'lab(? ? ?)', 'oklch(0.5 0.1)', 'garbage', 'rgb()']) {
+		assert.equal(OklchColor.tryFromString(empty), null, `should hold (null) on "${empty}"`);
+	}
+
+	// (d) Named colours are untouched by the hardening (a separate lookup) and
+	// round-trip verbatim.
+	for (const name of [
+		'red', 'lime', 'blue', 'rebeccapurple', 'transparent', 'tomato',
+		'wheat', 'grey', 'gray', 'darkslategray', 'cornflowerblue', 'aquamarine',
+	]) {
+		const c = OklchColor.tryFromString(name);
+		assert.ok(c, `named colour "${name}" should resolve`);
+		assert.equal(c.serialize(), name, `named colour "${name}" should round-trip verbatim`);
+	}
+
+	// (e) Fuzz: whatever parse/the model accept must be finite + NaN-free in the
+	// serialised output — no garbage string ever yields NaN/Infinity.
+	const r = rng(0xbad5eed);
+	const junk = ['', '?', 'abc', 'none?', '1px', '/', '1/2', '..', '1.2.3', '+-1', 'e5'];
+	const fns = ['rgb', 'rgba', 'hsl', 'hwb', 'oklch', 'oklab', 'lab', 'lch'];
+	for (let i = 0; i < 5000; i++) {
+		const fn = fns[Math.floor(r() * fns.length)];
+		const tok = (): string =>
+			r() < 0.5 ? junk[Math.floor(r() * junk.length)] : (r() * 300 - 50).toFixed(2);
+		const sep = r() < 0.5 ? ', ' : ' ';
+		let s = `${fn}(${tok()}${sep}${tok()}${sep}${tok()}`;
+		if (r() < 0.4) s += ` / ${tok()}`;
+		s += ')';
+		const p = parse(s);
+		if (p) {
+			assert.ok(p.coords.every(Number.isFinite) && Number.isFinite(p.alpha), `parse non-finite: "${s}"`);
+		}
+		const c = OklchColor.tryFromString(s);
+		if (c) {
+			assert.doesNotMatch(c.serialize(), /NaN|Infinity|undefined/, `bad serialize from "${s}"`);
+			assert.ok(c.coords.every(Number.isFinite) && Number.isFinite(c.alpha), `model non-finite: "${s}"`);
+		}
+	}
+});
+
+// ── model: alpha presence is part of identity (the equals/serialize contract) ─
+
+test('stress: equals tracks hasAlpha, so a toggled alpha is never missed', () => {
+	// An opaque value (hasAlpha=false) with its alpha then turned on must differ in
+	// identity; for the modern rgb form, where the alpha slot shows, the serialised
+	// output changes too. (hex/oklch omit an alpha of 1, so only identity differs.)
+	for (const src of ['rgb(10 20 30)', '#102030', 'oklch(0.5 0.1 200)']) {
+		const opaque = OklchColor.fromString(src).asEdited();
+		assert.equal(opaque.hasAlpha, false, `${src} should be opaque`);
+		assert.ok(!opaque.equals(opaque.withAlpha(1)), `${src}: equals() ignored hasAlpha`);
+	}
+	{
+		const o = OklchColor.fromString('rgb(10 20 30)').asEdited();
+		assert.notEqual(o.serialize(), o.withAlpha(1).serialize(), 'rgb alpha slot should show');
+	}
+	// Across every mode: an opaque value and the same value with alpha turned on
+	// are never equal (else the binding misses the change); identical builds are.
+	const r = rng(0x5a17a1);
+	for (let i = 0; i < 4000; i++) {
+		const base = OklchColor.fromString(
+			`oklch(${(0.05 + r() * 0.9).toFixed(4)} ${(r() * 0.3).toFixed(4)} ${(r() * 360).toFixed(2)})`,
+		);
+		const mode = EDIT_MODES[Math.floor(r() * EDIT_MODES.length)];
+		const a = base.withFormat(mode); // opaque (base has no alpha), source=null
+		assert.equal(a.hasAlpha, false, `${mode}: expected opaque`);
+		assert.ok(!a.equals(a.withAlpha(1)), `${mode}: opaque equals withAlpha(1)`);
+		assert.ok(a.equals(base.withFormat(mode)), `${mode}: identical build not equal`);
+	}
+});
+
+// ── area: computeArea stays finite/ordered + the gamut probe matches colorjs ──
+
+test('stress: computeArea is finite + nested, and oklchGamutProbe matches colorjs', () => {
+	const r = rng(0xa4ea00);
+	// (a) Fuzz the raster across hues, sizes, dpr, stretch + P3 support.
+	for (let i = 0; i < 500; i++) {
+		const stretch = (['srgb', 'p3', 'rec2020'] as const)[Math.floor(r() * 3)];
+		const a = computeArea({
+			hue: r() * 360,
+			cssW: 1 + Math.floor(r() * 400),
+			cssH: 1 + Math.floor(r() * 300),
+			dpr: [1, 2, 3][Math.floor(r() * 3)],
+			supportsP3: r() < 0.5,
+			stretch,
+		});
+		for (const v of a.chromaCurve) {
+			assert.ok(Number.isFinite(v) && v >= 0 && v <= 0.5, `curve ${v}`);
+		}
+		for (const b of a.boundaries) {
+			for (const p of b.points) {
+				assert.ok(Number.isFinite(p.x) && p.x >= -1 && p.x <= a.backingW + 1, `bx ${p.x}`);
+				assert.ok(Number.isFinite(p.y) && p.y >= -1 && p.y <= a.backingH + 1, `by ${p.y}`);
+			}
+		}
+		// Nesting: at a shared row, the inner (sRGB) boundary sits at or inside the
+		// outer one.
+		if (a.boundaries.length === 2) {
+			const [inner, outer] = a.boundaries;
+			// Both boundaries sample the same lightnesses, so a point's `y` is an exact
+			// shared key — match on it (rounding would collide rows at small sizes and
+			// compare different lightnesses).
+			const ox = new Map(outer!.points.map((p) => [p.y, p.x]));
+			for (const p of inner!.points) {
+				// Skip the near-black/near-white tips: chroma collapses to ~0 there, so
+				// the normalised boundary is numerically degenerate (as area.test does).
+				const L = 1 - p.y / a.backingH;
+				if (L < 0.05 || L > 0.95) {
+					continue;
+				}
+				const o = ox.get(p.y);
+				if (o != null) {
+					assert.ok(p.x <= o + 1, `nesting at y=${p.y}: sRGB ${p.x} > outer ${o}`);
+				}
+			}
+		}
+	}
+
+	// (b) Dense probe-vs-colorjs parity — the gate for the bisection optimisation.
+	// Disagreements are allowed only within a thin shell of the true boundary,
+	// where the gamma-epsilon slack legitimately differs.
+	let worst = 0;
+	let at = '';
+	for (const gamut of ['srgb', 'p3', 'rec2020', 'prophoto-rgb'] as const) {
+		const cjs = gamut === 'prophoto-rgb' ? 'prophoto' : gamut;
+		for (let i = 0; i < 400; i++) {
+			const hue = r() * 360;
+			const probe = oklchGamutProbe(hue, gamut);
+			for (let k = 0; k < 12; k++) {
+				const L = r();
+				const C = r() * 0.5;
+				if (probe(L, C) === new Color('oklch', [L, C, hue]).inGamut(cjs)) {
+					continue;
+				}
+				// They disagree: measure how far C is from colorjs's true boundary.
+				let lo = 0;
+				let hi = 0.5;
+				for (let j = 0; j < 28; j++) {
+					const m = (lo + hi) / 2;
+					if (new Color('oklch', [L, m, hue]).inGamut(cjs)) lo = m;
+					else hi = m;
+				}
+				const d = Math.abs(C - lo);
+				if (d > worst) {
+					worst = d;
+					at = `${gamut} hue ${hue.toFixed(1)} L ${L.toFixed(3)} C ${C.toFixed(4)} vs boundary ${lo.toFixed(4)}`;
+				}
+			}
+		}
+	}
+	assert.ok(worst < 2e-3, `probe disagreed ${worst.toExponential(2)} from boundary @ ${at}`);
 });
