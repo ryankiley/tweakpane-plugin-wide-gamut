@@ -6,7 +6,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {EDIT_MODES, MODE_CHANNELS, OklchColor} from '../src/model/color.js';
+import {
+	areaStretch,
+	EDIT_MODES,
+	MODE_CHANNELS,
+	OklchColor,
+} from '../src/model/color.js';
 
 const approx = (a: number, b: number, tol = 1e-2): void =>
 	assert.ok(Math.abs(a - b) <= tol, `expected ${a} ≈ ${b} (±${tol})`);
@@ -229,4 +234,16 @@ test('switching into an sRGB-bound mode snaps the colour into sRGB', () => {
 	assert.ok(!wide.inGamut('srgb'), 'starts wide');
 	assert.ok(wide.withFormat('srgb').inGamut('srgb'), 'RGB snaps into sRGB');
 	assert.ok(wide.withFormat('hex').inGamut('srgb'), 'HEX snaps into sRGB');
+});
+
+test('the colour area caps every wide mode at the P3 display gamut', () => {
+	// sRGB-bound modes draw the sRGB plane; every wide mode (incl. Rec2020 and the
+	// perceptual ones) caps at P3 — the displayable limit — so the thumb can't
+	// slide into colours the screen can't show.
+	for (const m of ['hex', 'srgb', 'css', 'hsl', 'hwb'] as const) {
+		assert.equal(areaStretch(m), 'srgb', `${m} → sRGB plane`);
+	}
+	for (const m of ['oklch', 'oklab', 'lch', 'lab', 'p3', 'rec2020'] as const) {
+		assert.equal(areaStretch(m), 'p3', `${m} → P3 plane`);
+	}
 });

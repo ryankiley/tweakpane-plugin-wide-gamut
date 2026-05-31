@@ -46,10 +46,10 @@ const GAMUT_RANK: Record<Space, number> = {
 	oklch: 9,
 };
 
-/** Boundary lines available to stroke over the plane, narrow → wide. The
- *  brighter/solid sRGB line and the fainter dashed P3 line appear whenever the
- *  plane is stretched wider than them. (No mode stretches past Rec2020, so
- *  Rec2020 is only ever the edge, never an inner line.) */
+/** Boundary lines available to stroke over the plane, narrow → wide. Each is
+ *  drawn when the plane is stretched to it or wider. The plugin caps the stretch
+ *  at P3 (`areaStretch`), so a wide plane shows the solid sRGB line inside and the
+ *  dashed P3 line riding the edge (the displayable limit). */
 const BOUNDARIES: {
 	space: Space;
 	color: string;
@@ -102,9 +102,9 @@ export interface AreaRequest {
 	cssH: number;
 	dpr: number;
 	supportsP3: boolean;
-	/** Gamut stretched to fill the canvas width — the current mode's own gamut
-	 *  ('srgb' for the sRGB-bound modes, 'p3', or 'rec2020' for Rec2020 and the
-	 *  perceptual modes). Every narrower gamut is drawn as an inner boundary line. */
+	/** Gamut stretched to fill the canvas width. The plugin passes 'srgb' (the
+	 *  sRGB-bound modes) or 'p3' (every wide mode); the primitive also accepts
+	 *  wider. Every narrower gamut is drawn as an inner boundary line. */
 	stretch: Space;
 }
 
@@ -147,7 +147,11 @@ function traceBoundary(
 		if (c <= 0) {
 			continue; // gamut empty at this lightness
 		}
-		points.push({x: (c / edge) * W, y: (1 - L) * H});
+		// A line riding the very edge (the stretch gamut's own boundary, e.g. P3 on
+		// a P3 plane) would be half-clipped by the canvas border; pull it in by half
+		// its stroke so it hugs the edge fully visible.
+		const x = Math.min((c / edge) * W, W - (spec.width * dpr) / 2);
+		points.push({x, y: (1 - L) * H});
 	}
 	return {
 		points,
@@ -190,13 +194,18 @@ export function computeArea(req: AreaRequest): AreaResult {
 		}
 	}
 
-	// Draw a line for each gamut strictly narrower than the stretch: sRGB only on
-	// a P3 plane; sRGB + P3 on a Rec2020 plane; nothing on an sRGB plane.
-	const boundaries = BOUNDARIES.filter(
-		(spec) => GAMUT_RANK[spec.space] < GAMUT_RANK[req.stretch],
-	).map((spec) =>
-		traceBoundary(spec, req.hue, stretch, backingW, backingH, req.dpr),
-	);
+	// Draw a line for every gamut up to and including the stretch: narrower gamuts
+	// fall inside (the solid sRGB line) and the stretch gamut itself rides the edge
+	// (the dashed P3 line on a P3 plane), marking the displayable limit. An sRGB
+	// plane stays bare — the whole area is in gamut, so there's nothing to mark.
+	const boundaries =
+		req.stretch === 'srgb'
+			? []
+			: BOUNDARIES.filter(
+					(spec) => GAMUT_RANK[spec.space] <= GAMUT_RANK[req.stretch],
+			  ).map((spec) =>
+					traceBoundary(spec, req.hue, stretch, backingW, backingH, req.dpr),
+			  );
 
 	return {
 		pixels: pixels.buffer,

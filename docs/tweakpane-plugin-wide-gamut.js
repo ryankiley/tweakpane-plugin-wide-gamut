@@ -7118,6 +7118,15 @@ function toGamut(oklch, dest) {
     let max = oklch[1];
     let minInGamut = true;
     let clipped = clip(convert(current, 'oklch', dest));
+    // CSS Color 4 step before the search: if clipping the origin is already within
+    // a JND, return that clip rather than reducing chroma at all. This matters
+    // where the gamut boundary isn't monotonic in chroma (e.g. ProPhoto near
+    // black, where its red channel dips negative then recovers): the bisection's
+    // midpoints can sit further out of gamut than the origin, which would
+    // otherwise walk the result down to a needlessly low chroma.
+    if (deltaEOK(convert(clipped, dest, 'oklab'), convert(oklch, 'oklch', 'oklab')) < JND) {
+        return clipped;
+    }
     while (max - min > EPS) {
         const chroma = (min + max) / 2;
         current[1] = chroma;
@@ -7515,15 +7524,13 @@ const SRGB_BOUND_MODES = ['srgb', 'css', 'hsl', 'hwb', 'hex'];
 function showsGamutBoundary(mode) {
     return !SRGB_BOUND_MODES.includes(mode);
 }
-/** The gamut the colour area stretches to in a given mode — the mode's own:
- *  sRGB for the sRGB-bound modes, P3 for P3, and Rec2020 for Rec2020 and the
- *  (unbounded) perceptual modes, so OKLCH/OKLab/LCH/Lab can author the full wide
- *  gamut. Every gamut narrower than this is drawn as an inner boundary line. */
+/** The gamut the colour area stretches to in a given mode: sRGB for the
+ *  sRGB-bound modes, P3 for every wide mode (P3, Rec2020, and the perceptual
+ *  OKLCH/OKLab/LCH/Lab). P3 is the widest gamut real displays render, so the
+ *  plane's edge is the displayable limit — the thumb can't slide into colours
+ *  the screen can't show. The sRGB boundary stays as the inner reference line. */
 function areaStretch(mode) {
-    if (SRGB_BOUND_MODES.includes(mode)) {
-        return 'srgb';
-    }
-    return mode === 'p3' ? 'p3' : 'rec2020';
+    return SRGB_BOUND_MODES.includes(mode) ? 'srgb' : 'p3';
 }
 /** Hard cap on OKLCH chroma. Beyond any real display gamut (ProPhoto tops out
  *  near 0.49), so it rejects nonsense input (e.g. a typed chroma of 40000)
@@ -8008,10 +8015,10 @@ const GAMUT_RANK = {
     oklab: 9,
     oklch: 9,
 };
-/** Boundary lines available to stroke over the plane, narrow → wide. The
- *  brighter/solid sRGB line and the fainter dashed P3 line appear whenever the
- *  plane is stretched wider than them. (No mode stretches past Rec2020, so
- *  Rec2020 is only ever the edge, never an inner line.) */
+/** Boundary lines available to stroke over the plane, narrow → wide. Each is
+ *  drawn when the plane is stretched to it or wider. The plugin caps the stretch
+ *  at P3 (`areaStretch`), so a wide plane shows the solid sRGB line inside and the
+ *  dashed P3 line riding the edge (the displayable limit). */
 const BOUNDARIES = [
     { space: 'srgb', color: 'rgba(255,255,255,0.7)', width: 1.5, dash: [] },
     { space: 'p3', color: 'rgba(255,255,255,0.4)', width: 1, dash: [3, 3] },
@@ -8065,7 +8072,11 @@ function traceBoundary(spec, hue, stretch, W, H, dpr) {
         if (c <= 0) {
             continue; // gamut empty at this lightness
         }
-        points.push({ x: (c / edge) * W, y: (1 - L) * H });
+        // A line riding the very edge (the stretch gamut's own boundary, e.g. P3 on
+        // a P3 plane) would be half-clipped by the canvas border; pull it in by half
+        // its stroke so it hugs the edge fully visible.
+        const x = Math.min((c / edge) * W, W - (spec.width * dpr) / 2);
+        points.push({ x, y: (1 - L) * H });
     }
     return {
         points,
@@ -8104,9 +8115,13 @@ function computeArea(req) {
             pixels[o + 3] = 255;
         }
     }
-    // Draw a line for each gamut strictly narrower than the stretch: sRGB only on
-    // a P3 plane; sRGB + P3 on a Rec2020 plane; nothing on an sRGB plane.
-    const boundaries = BOUNDARIES.filter((spec) => GAMUT_RANK[spec.space] < GAMUT_RANK[req.stretch]).map((spec) => traceBoundary(spec, req.hue, stretch, backingW, backingH, req.dpr));
+    // Draw a line for every gamut up to and including the stretch: narrower gamuts
+    // fall inside (the solid sRGB line) and the stretch gamut itself rides the edge
+    // (the dashed P3 line on a P3 plane), marking the displayable limit. An sRGB
+    // plane stays bare — the whole area is in gamut, so there's nothing to mark.
+    const boundaries = req.stretch === 'srgb'
+        ? []
+        : BOUNDARIES.filter((spec) => GAMUT_RANK[spec.space] <= GAMUT_RANK[req.stretch]).map((spec) => traceBoundary(spec, req.hue, stretch, backingW, backingH, req.dpr));
     return {
         pixels: pixels.buffer,
         W,
@@ -8428,11 +8443,12 @@ class AreaPicker {
 
 /*
  * The colour area — our gamut-aware `AreaPicker` wrapped as a Tweakpane
- * sub-controller. It's an OKLCH lightness×chroma plane scaled to the mode's own
- * gamut (see `areaStretch`): sRGB modes draw the sRGB plane (no lines), P3 draws
- * the P3 plane with an sRGB line, and Rec2020 / the perceptual modes draw the
- * Rec2020 plane with sRGB + P3 lines. (The thumb shifts when switching between
- * gamuts of different width, since the chroma axis rescales.)
+ * sub-controller. It's an OKLCH lightness×chroma plane scaled to the mode's gamut
+ * (see `areaStretch`): the sRGB-bound modes draw the sRGB plane (no lines), every
+ * wide mode draws the P3 plane with the solid sRGB line inside and a dashed P3
+ * line at the edge. P3 is the plane's edge — the widest gamut real displays show
+ * — so you can't drag into colours the screen can't render. (The thumb shifts a
+ * little when switching between the sRGB and P3 planes, since the axis rescales.)
  */
 const cnSv = ClassName('svp');
 class AreaController {
