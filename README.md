@@ -1,5 +1,7 @@
 # tweakpane-plugin-wide-gamut
 
+![npm](https://img.shields.io/npm/v/tweakpane-plugin-wide-gamut?style=flat-square&logo=npm) ![CI](https://img.shields.io/github/actions/workflow/status/ryankiley/tweakpane-plugin-wide-gamut/ci.yml?style=flat-square&label=CI) ![Tweakpane v4](https://img.shields.io/badge/Tweakpane-v4-blue?style=flat-square) ![license](https://img.shields.io/npm/l/tweakpane-plugin-wide-gamut?style=flat-square)
+
 ![The expanded picker: an OKLCH colour area with the sRGB/P3 gamut boundary, a hue strip, and the OKLCH mode dropdown with L/C/H inputs](docs/screenshot.png)
 
 A wide-gamut colour picker for [Tweakpane][tweakpane] v4. It mirrors the native
