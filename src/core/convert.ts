@@ -43,6 +43,22 @@ function mul(m: Mat3, v: Vec3): Vec3 {
 	];
 }
 
+/** 3×3 × 3×3 matrix product — used to fuse a fixed conversion chain into one
+ *  matrix ahead of a hot loop. */
+function mulMat(a: Mat3, b: Mat3): Mat3 {
+	const o: Mat3 = [
+		[0, 0, 0],
+		[0, 0, 0],
+		[0, 0, 0],
+	];
+	for (let i = 0; i < 3; i++) {
+		for (let j = 0; j < 3; j++) {
+			o[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j];
+		}
+	}
+	return o;
+}
+
 // ── Transfer functions (gamma ↔ linear), all sign-preserving per CSS Color 4 ──
 
 /** sRGB / Display-P3 gamma → linear-light. */
@@ -363,4 +379,70 @@ export function convert(coords: Vec3, from: Space, to: Space): Vec3 {
 	if (from === 'lch' && to === 'lab') return toRect(coords);
 	if (from === 'lab' && to === 'lch') return toPolar(coords);
 	return fromXyz(toXyz(coords, from), to);
+}
+
+// colorjs's inGamut epsilon (matches src/core/gamut.ts) — applied to the
+// gamma-encoded RGB channels, the exact quantity the reference `inGamut` tests.
+const GAMUT_SLACK = 0.000075;
+
+/**
+ * Build a fast in-gamut probe for OKLCH at a *fixed hue*. Returns `(L, C) =>
+ * inside?` that reuses all hue-dependent work, for the area picker's per-frame
+ * chroma bisection (hue is constant across a frame while L and C vary).
+ *
+ * OKLab→LMS has first column [1,1,1], so LMS = [L,L,L] + C·dir where `dir`
+ * depends only on hue; the per-point cube is the sole nonlinearity. LMS→XYZ→
+ * linear-RGB is fused into one matrix `F` up front (D50-adapted for ProPhoto),
+ * then the gamut's transfer function + bounds check run per point. This is the
+ * same computation as `inGamut([L, C, hue], 'oklch', gamut)` with the fixed
+ * matrix chain hoisted out of the loop, so it matches it exactly. (Skipping the
+ * gamma encode and testing linear RGB looks tempting but breaks down near black,
+ * where the linear↔gamma slope is ~13× and the chroma boundary is near-flat — a
+ * tiny linear tolerance there becomes a huge chroma error.) `gamut` must be an
+ * RGB space (the only kind the area stretches to).
+ */
+export function oklchGamutProbe(
+	hue: number,
+	gamut: Space,
+): (L: number, C: number) => boolean {
+	const h = hue * RAD;
+	const cos = Math.cos(h);
+	const sin = Math.sin(h);
+	const d0 = cos * OKLAB_TO_LMS[0][1] + sin * OKLAB_TO_LMS[0][2];
+	const d1 = cos * OKLAB_TO_LMS[1][1] + sin * OKLAB_TO_LMS[1][2];
+	const d2 = cos * OKLAB_TO_LMS[2][1] + sin * OKLAB_TO_LMS[2][2];
+	const xyzToLin =
+		gamut === 'p3'
+			? XYZ_TO_LIN_P3
+			: gamut === 'rec2020'
+			? XYZ_TO_LIN_REC2020
+			: gamut === 'prophoto-rgb'
+			? XYZ_D50_TO_LIN_PRO
+			: XYZ_TO_LIN_SRGB;
+	const F = mulMat(
+		xyzToLin,
+		gamut === 'prophoto-rgb' ? mulMat(XYZ_D65_TO_D50, LMS_TO_XYZ) : LMS_TO_XYZ,
+	);
+	const gam =
+		gamut === 'rec2020'
+			? rec2020Gam
+			: gamut === 'prophoto-rgb'
+			? prophotoGam
+			: srgbGam;
+	const lo = -GAMUT_SLACK;
+	const hi = 1 + GAMUT_SLACK;
+	return (L: number, C: number): boolean => {
+		const p0 = L + C * d0;
+		const p1 = L + C * d1;
+		const p2 = L + C * d2;
+		const c0 = p0 * p0 * p0;
+		const c1 = p1 * p1 * p1;
+		const c2 = p2 * p2 * p2;
+		const r = gam(F[0][0] * c0 + F[0][1] * c1 + F[0][2] * c2);
+		if (r < lo || r > hi) return false;
+		const g = gam(F[1][0] * c0 + F[1][1] * c1 + F[1][2] * c2);
+		if (g < lo || g > hi) return false;
+		const b = gam(F[2][0] * c0 + F[2][1] * c1 + F[2][2] * c2);
+		return b >= lo && b <= hi;
+	};
 }

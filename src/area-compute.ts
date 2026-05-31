@@ -2,16 +2,15 @@
  * Builds the OKLCH lightness×chroma plane for a fixed hue: the gradient image
  * plus the gamut-boundary polylines drawn over it.
  *
- * Everything derives from one primitive — `maxChroma(L, hue, gamut)`, the
- * largest in-gamut chroma at a given lightness, found by bisection against the
- * in-house colour engine (./core). The plane stretches to the caller's `stretch`
- * gamut: its max-chroma curve sets the gradient's right edge at every row, and
- * each gamut *narrower* than the stretch is plotted as a boundary line at its
+ * Everything derives from one primitive — the largest in-gamut chroma at a
+ * given lightness, found by bisecting a per-hue gamut probe from the in-house
+ * colour engine (./core). The plane stretches to the caller's `stretch` gamut:
+ * its max-chroma curve sets the gradient's right edge at every row, and each
+ * gamut *narrower* than the stretch is plotted as a boundary line at its
  * fraction of that edge. Lightness is the vertical axis (top = 1).
  */
 import type {Space} from './core/convert.js';
-import {convert} from './core/convert.js';
-import {inGamut} from './core/gamut.js';
+import {convert, oklchGamutProbe} from './core/convert.js';
 
 /** Gradient is rasterised at 1/4 of the backing resolution, then scaled up. */
 const SUBSAMPLE = 4;
@@ -61,24 +60,25 @@ const BOUNDARIES: {
 ];
 
 /**
- * Largest chroma that keeps OKLCH(`L`, ·, `hue`) inside `gamut`, by bisection.
- * Returns 0 when the gamut doesn't even contain the achromatic point at this
- * lightness (so the row contributes nothing).
+ * Largest in-gamut chroma at lightness `L`, by bisecting a prebuilt per-hue
+ * `probe` (see `oklchGamutProbe`). Returns 0 when the gamut doesn't even contain
+ * the achromatic point at this lightness (so the row contributes nothing). The
+ * probe is built once per hue/gamut and reused across every lightness — that
+ * reuse is the bulk of the per-frame saving.
  */
 function maxChroma(
+	probe: (L: number, C: number) => boolean,
 	L: number,
-	hue: number,
-	gamut: Space,
 	ceiling = CHROMA_CEILING,
 ): number {
-	if (!inGamut([L, 0, hue], 'oklch', gamut)) {
+	if (!probe(L, 0)) {
 		return 0;
 	}
 	let inside = 0;
 	let outside = ceiling;
 	for (let i = 0; i < BISECT_STEPS; i++) {
 		const mid = (inside + outside) / 2;
-		if (inGamut([L, mid, hue], 'oklch', gamut)) {
+		if (probe(L, mid)) {
 			inside = mid;
 		} else {
 			outside = mid;
@@ -132,6 +132,7 @@ function traceBoundary(
 	dpr: number,
 ): BoundarySpec {
 	const STEPS = 100;
+	const probe = oklchGamutProbe(hue, spec.space);
 	const points: {x: number; y: number}[] = [];
 	for (let s = 0; s <= STEPS; s++) {
 		const L = s / STEPS;
@@ -143,7 +144,7 @@ function traceBoundary(
 		// and P3 inside Rec2020) lands inside it. Tying the search to `edge` keeps
 		// the ratio ordered and bounded even at the near-black/near-white extremes,
 		// where `edge` itself is tiny and an independent search is noisy.
-		const c = maxChroma(L, hue, spec.space, edge);
+		const c = maxChroma(probe, L, edge);
 		if (c <= 0) {
 			continue; // gamut empty at this lightness
 		}
@@ -172,9 +173,10 @@ export function computeArea(req: AreaRequest): AreaResult {
 	// Stretch reference: the chroma ceiling of `req.stretch` at each lightness.
 	// Drives both the gradient's per-row width and the boundary x-normalisation —
 	// so in an sRGB stretch the whole plane is exactly the sRGB gamut.
+	const stretchProbe = oklchGamutProbe(req.hue, req.stretch);
 	const stretch = new Float64Array(CURVE_SAMPLES);
 	for (let i = 0; i < CURVE_SAMPLES; i++) {
-		stretch[i] = maxChroma(i / (CURVE_SAMPLES - 1), req.hue, req.stretch);
+		stretch[i] = maxChroma(stretchProbe, i / (CURVE_SAMPLES - 1));
 	}
 
 	// Rasterise the gradient: column x maps to chroma (x/W of the row's stretch
