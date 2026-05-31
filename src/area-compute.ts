@@ -109,7 +109,7 @@ export interface AreaRequest {
 }
 
 export interface AreaResult {
-	pixels: ArrayBuffer;
+	pixels: Uint8ClampedArray;
 	W: number;
 	H: number;
 	backingW: number;
@@ -180,11 +180,13 @@ export function computeArea(req: AreaRequest): AreaResult {
 	// Rasterise the gradient: column x maps to chroma (x/W of the row's stretch
 	// max), row y maps to lightness (top = 1).
 	const pixels = new Uint8ClampedArray(W * H * 4);
+	const invH = H > 1 ? 1 / (H - 1) : 0;
+	const invW = W > 1 ? 1 / (W - 1) : 0;
 	for (let y = 0; y < H; y++) {
-		const L = 1 - y / (H - 1);
+		const L = 1 - y * invH;
 		const rowMax = sampleCurve(stretch, L);
 		for (let x = 0; x < W; x++) {
-			const chroma = (x / (W - 1)) * rowMax;
+			const chroma = x * invW * rowMax;
 			const [r, g, b] = convert([L, chroma, req.hue], 'oklch', target);
 			const o = (y * W + x) * 4;
 			pixels[o] = toByte(r);
@@ -208,7 +210,7 @@ export function computeArea(req: AreaRequest): AreaResult {
 			  );
 
 	return {
-		pixels: pixels.buffer,
+		pixels,
 		W,
 		H,
 		backingW,
