@@ -1,10 +1,11 @@
 /*
  * The colour area — our gamut-aware `AreaPicker` wrapped as a Tweakpane
- * sub-controller. It's an OKLCH lightness×chroma plane scaled to the mode's own
- * gamut (see `areaStretch`): sRGB modes draw the sRGB plane (no lines), P3 draws
- * the P3 plane with an sRGB line, and Rec2020 / the perceptual modes draw the
- * Rec2020 plane with sRGB + P3 lines. (The thumb shifts when switching between
- * gamuts of different width, since the chroma axis rescales.)
+ * sub-controller. It's an OKLCH lightness×chroma plane scaled to the mode's gamut
+ * (see `areaStretch`): the sRGB-bound modes draw the sRGB plane (no lines), every
+ * wide mode draws the P3 plane with the solid sRGB line inside and a dashed P3
+ * line at the edge. P3 is the plane's edge — the widest gamut real displays show
+ * — so you can't drag into colours the screen can't render. (The thumb shifts a
+ * little when switching between the sRGB and P3 planes, since the axis rescales.)
  */
 import {
 	type Value,

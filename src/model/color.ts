@@ -62,15 +62,13 @@ export function showsGamutBoundary(mode: EditMode): boolean {
 	return !SRGB_BOUND_MODES.includes(mode);
 }
 
-/** The gamut the colour area stretches to in a given mode — the mode's own:
- *  sRGB for the sRGB-bound modes, P3 for P3, and Rec2020 for Rec2020 and the
- *  (unbounded) perceptual modes, so OKLCH/OKLab/LCH/Lab can author the full wide
- *  gamut. Every gamut narrower than this is drawn as an inner boundary line. */
+/** The gamut the colour area stretches to in a given mode: sRGB for the
+ *  sRGB-bound modes, P3 for every wide mode (P3, Rec2020, and the perceptual
+ *  OKLCH/OKLab/LCH/Lab). P3 is the widest gamut real displays render, so the
+ *  plane's edge is the displayable limit — the thumb can't slide into colours
+ *  the screen can't show. The sRGB boundary stays as the inner reference line. */
 export function areaStretch(mode: EditMode): Space {
-	if (SRGB_BOUND_MODES.includes(mode)) {
-		return 'srgb';
-	}
-	return mode === 'p3' ? 'p3' : 'rec2020';
+	return SRGB_BOUND_MODES.includes(mode) ? 'srgb' : 'p3';
 }
 
 /** Hard cap on OKLCH chroma. Beyond any real display gamut (ProPhoto tops out

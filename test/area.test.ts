@@ -124,9 +124,9 @@ test('gradient pixels match colorjs OKLCH→target conversion', () => {
 	}
 });
 
-test('boundary lines: each stretch draws only the narrower gamuts, properly nested', () => {
-	// sRGB stretch → no lines; P3 → [sRGB]; Rec2020 → [sRGB, P3]. And at every
-	// lightness the inner curves nest: sRGB ⊆ P3 ⊆ the (Rec2020) edge.
+test('boundary lines: sRGB inside + the plane gamut at the edge; sRGB plane is bare', () => {
+	// sRGB stretch → no lines; P3 → sRGB inside + the P3 line riding the edge;
+	// Rec2020 → [sRGB, P3] both inside (Rec2020 is the edge). Nesting: sRGB ⊆ P3 ⊆ edge.
 	const base = {cssW: 320, cssH: 200, dpr: 2, supportsP3: true} as const;
 	const at = (b: BoundarySpec, y: number): number | null => {
 		const q = b.points.find((p) => Math.abs(p.y - y) < 1e-6);
@@ -134,7 +134,17 @@ test('boundary lines: each stretch draws only the narrower gamuts, properly nest
 	};
 	for (const hue of HUES) {
 		assert.equal(computeArea({...base, hue, stretch: 'srgb'}).boundaries.length, 0, `srgb hue ${hue}`);
-		assert.equal(computeArea({...base, hue, stretch: 'p3'}).boundaries.length, 1, `p3 hue ${hue}`);
+		// P3 plane: sRGB line inside + the P3 line riding the right edge.
+		const p3plane = computeArea({...base, hue, stretch: 'p3'});
+		assert.equal(p3plane.boundaries.length, 2, `p3 hue ${hue}`);
+		for (const p of p3plane.boundaries[1]!.points) {
+			const L = 1 - p.y / p3plane.backingH;
+			if (L < 0.05 || L > 0.95) {
+				continue;
+			}
+			// Rides the edge (within 1% — sub-px interpolation wobble aside).
+			assert.ok(p.x >= p3plane.backingW * 0.99, `hue ${hue} P3 rides the edge: ${p.x} vs ${p3plane.backingW}`);
+		}
 		const res = computeArea({...base, hue, stretch: 'rec2020'});
 		assert.equal(res.boundaries.length, 2, `rec2020 hue ${hue}`);
 		// boundaries are narrow → wide: [sRGB, P3].
