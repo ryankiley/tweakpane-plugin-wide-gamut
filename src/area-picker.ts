@@ -90,6 +90,16 @@ export class AreaPicker {
 		}
 		this.#bindPointer(root);
 		this.#bindKeyboard(root);
+		// Repaint once the canvas actually has a laid-out size, and on any later
+		// resize. The first frame can otherwise rasterise against a still-unsized
+		// canvas (clientWidth 0), fall back to a default width the browser then
+		// downsamples into the real box, and leave the boundary stroke too thin
+		// until the first interaction forces a fresh frame at the correct size.
+		if (typeof ResizeObserver !== 'undefined') {
+			const ro = new ResizeObserver(() => this.#schedulePaint());
+			ro.observe(this.#canvas);
+			this.#abort.signal.addEventListener('abort', () => ro.disconnect());
+		}
 		this.#abort.signal.addEventListener('abort', () => {
 			if (this.#raf !== null) {
 				cancelAnimationFrame(this.#raf);
