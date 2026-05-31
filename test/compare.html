@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>wide-gamut — native vs released vs this build</title>
+	<style>
+		body { margin: 0; background: #1c1c1f; color: #aaa; font-family: system-ui, sans-serif; }
+		.cols { display: flex; gap: 32px; padding: 24px; align-items: flex-start; flex-wrap: wrap; }
+		/* Fixed-width columns so collapsed panes still line up for comparison. */
+		.col { width: 256px; }
+		.col h2 { font: 600 12px/1.4 system-ui; margin: 0 0 8px; }
+		.col h2 small { display: block; color: #777; font-weight: 400; }
+		#status { font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; padding: 0 24px 24px; }
+	</style>
+</head>
+<body>
+	<!--
+		Three-way comparison harness (dev only; not shipped — package files: ["dist"]).
+		Serve from the repo root, e.g. `npm start` then open /test/compare.html, or
+		`npx http-server -o /test/compare.html`. Build the local dist first
+		(`npm run build`) so the third pane has something to load.
+
+		  • OG native    — built-in Tweakpane colour picker, no plugin (fidelity ref)
+		  • released      — the exact npm @0.2.0 artifact, from the jsDelivr CDN
+		  • this build    — the local ../dist (this branch)
+
+		Valid colours should render identically in `released` and `this build` (the
+		perf rework is numerically exact). The visible difference is malformed input:
+		paste `rgb(255, 0, 0 / 0.5)` into each — released drops the alpha; this build
+		recovers red at 0.5.
+	-->
+	<div class="cols">
+		<div class="col"><h2>OG native picker<small>built-in, no plugin</small></h2><div id="native"></div></div>
+		<div class="col"><h2>released @0.2.0<small>npm · jsDelivr CDN</small></h2><div id="released"></div></div>
+		<div class="col"><h2>this build<small>local ../dist</small></h2><div id="local"></div></div>
+	</div>
+	<div id="status">loading…</div>
+	<script type="module">
+		import {Pane} from '../node_modules/tweakpane/dist/tweakpane.min.js';
+
+		const status = document.getElementById('status');
+		const lines = [];
+		const note = (m) => { lines.push(m); status.textContent = lines.join('\n'); };
+
+		// Identical bindings in both plugin panes so they line up for eyeballing.
+		const seed = () => ({
+			hex: '#4ba3f7',
+			p3: 'color(display-p3 0.2 0.9 0.4)',
+			oklch: 'oklch(0.7 0.15 250)',
+			glass: 'oklch(0.8 0.1 200 / 0.5)',
+		});
+
+		// 1) OG native — no plugin; the built-in picker handles hex/rgb.
+		try {
+			const p = new Pane({container: document.getElementById('native'), title: 'native'});
+			const params = {hex: '#4ba3f7', rgb: 'rgb(120, 120, 130)'};
+			Object.keys(params).forEach((k) => p.addBinding(params, k));
+			note('native: ok');
+		} catch (e) { note('native: ERROR ' + e.message); }
+
+		// 2) released @0.2.0 — the exact published artifact from the CDN.
+		try {
+			const Released = await import(
+				'https://cdn.jsdelivr.net/npm/tweakpane-plugin-wide-gamut@0.2.0/dist/tweakpane-plugin-wide-gamut.js'
+			);
+			const p = new Pane({container: document.getElementById('released'), title: 'released'});
+			p.registerPlugin(Released);
+			const params = seed();
+			Object.keys(params).forEach((k) => p.addBinding(params, k));
+			window.releasedPane = p;
+			note('released @0.2.0: ok');
+		} catch (e) { note('released: ERROR ' + e.message); }
+
+		// 3) this build — the local dist for this branch.
+		try {
+			const Local = await import('../dist/tweakpane-plugin-wide-gamut.js');
+			const p = new Pane({container: document.getElementById('local'), title: 'this build'});
+			p.registerPlugin(Local);
+			const params = seed();
+			Object.keys(params).forEach((k) => p.addBinding(params, k));
+			window.localPane = p;
+			note('this build: ok');
+		} catch (e) { note('this build: ERROR ' + e.message); }
+	</script>
+</body>
+</html>
