@@ -6769,6 +6769,21 @@ function mul(m, v) {
         m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
     ];
 }
+/** 3×3 × 3×3 matrix product — used to fuse a fixed conversion chain into one
+ *  matrix ahead of a hot loop. */
+function mulMat(a, b) {
+    const o = [
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+    ];
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            o[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j];
+        }
+    }
+    return o;
+}
 // ── Transfer functions (gamma ↔ linear), all sign-preserving per CSS Color 4 ──
 /** sRGB / Display-P3 gamma → linear-light. */
 function srgbLin(c) {
@@ -7075,6 +7090,64 @@ function convert(coords, from, to) {
         return toPolar(coords);
     return fromXyz(toXyz(coords, from), to);
 }
+// colorjs's inGamut epsilon (matches src/core/gamut.ts) — applied to the
+// gamma-encoded RGB channels, the exact quantity the reference `inGamut` tests.
+const GAMUT_SLACK = 0.000075;
+/**
+ * Build a fast in-gamut probe for OKLCH at a *fixed hue*. Returns `(L, C) =>
+ * inside?` that reuses all hue-dependent work, for the area picker's per-frame
+ * chroma bisection (hue is constant across a frame while L and C vary).
+ *
+ * OKLab→LMS has first column [1,1,1], so LMS = [L,L,L] + C·dir where `dir`
+ * depends only on hue; the per-point cube is the sole nonlinearity. LMS→XYZ→
+ * linear-RGB is fused into one matrix `F` up front (D50-adapted for ProPhoto),
+ * then the gamut's transfer function + bounds check run per point. This is the
+ * same computation as `inGamut([L, C, hue], 'oklch', gamut)` with the fixed
+ * matrix chain hoisted out of the loop, so it matches it exactly. (Skipping the
+ * gamma encode and testing linear RGB looks tempting but breaks down near black,
+ * where the linear↔gamma slope is ~13× and the chroma boundary is near-flat — a
+ * tiny linear tolerance there becomes a huge chroma error.) `gamut` must be an
+ * RGB space (the only kind the area stretches to).
+ */
+function oklchGamutProbe(hue, gamut) {
+    const h = hue * RAD;
+    const cos = Math.cos(h);
+    const sin = Math.sin(h);
+    const d0 = cos * OKLAB_TO_LMS[0][1] + sin * OKLAB_TO_LMS[0][2];
+    const d1 = cos * OKLAB_TO_LMS[1][1] + sin * OKLAB_TO_LMS[1][2];
+    const d2 = cos * OKLAB_TO_LMS[2][1] + sin * OKLAB_TO_LMS[2][2];
+    const xyzToLin = gamut === 'p3'
+        ? XYZ_TO_LIN_P3
+        : gamut === 'rec2020'
+            ? XYZ_TO_LIN_REC2020
+            : gamut === 'prophoto-rgb'
+                ? XYZ_D50_TO_LIN_PRO
+                : XYZ_TO_LIN_SRGB;
+    const F = mulMat(xyzToLin, gamut === 'prophoto-rgb' ? mulMat(XYZ_D65_TO_D50, LMS_TO_XYZ) : LMS_TO_XYZ);
+    const gam = gamut === 'rec2020'
+        ? rec2020Gam
+        : gamut === 'prophoto-rgb'
+            ? prophotoGam
+            : srgbGam;
+    const lo = -GAMUT_SLACK;
+    const hi = 1 + GAMUT_SLACK;
+    return (L, C) => {
+        const p0 = L + C * d0;
+        const p1 = L + C * d1;
+        const p2 = L + C * d2;
+        const c0 = p0 * p0 * p0;
+        const c1 = p1 * p1 * p1;
+        const c2 = p2 * p2 * p2;
+        const r = gam(F[0][0] * c0 + F[0][1] * c1 + F[0][2] * c2);
+        if (r < lo || r > hi)
+            return false;
+        const g = gam(F[1][0] * c0 + F[1][1] * c1 + F[1][2] * c2);
+        if (g < lo || g > hi)
+            return false;
+        const b = gam(F[2][0] * c0 + F[2][1] * c1 + F[2][2] * c2);
+        return b >= lo && b <= hi;
+    };
+}
 
 // colorjs's default inGamut epsilon — small slack so a colour exactly on the
 // boundary counts as inside.
@@ -7158,17 +7231,33 @@ const COLOR_FN_SPACES = {
     rec2020: 'rec2020',
     'prophoto-rgb': 'prophoto-rgb',
 };
+const clamp01$1 = (n) => (n < 0 ? 0 : n > 1 ? 1 : n);
+// A bare number: optional sign, digits/decimal, optional exponent.
+const NUMBER = String.raw `[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?`;
+const NUMBER_RE = new RegExp(`^${NUMBER}$`);
+// A hue/angle is a number with an optional angle unit — never a percentage.
+const ANGLE_RE = new RegExp(`^(${NUMBER})(deg|grad|rad|turn)?$`);
+/** Parse a hue/angle token to degrees, or NaN if it isn't a valid angle (so the
+ *  caller rejects it). Percentages are not valid angles. */
 function parseAngle(tok) {
-    const n = parseFloat(tok);
-    if (tok.endsWith('turn'))
-        return n * 360;
-    if (tok.endsWith('grad'))
-        return n * 0.9;
-    if (tok.endsWith('rad'))
-        return (n * 180) / Math.PI;
-    return n; // deg or unitless
+    const m = ANGLE_RE.exec(tok);
+    if (!m)
+        return NaN;
+    const n = parseFloat(m[1]);
+    switch (m[2]) {
+        case 'turn':
+            return n * 360;
+        case 'grad':
+            return n * 0.9;
+        case 'rad':
+            return (n * 180) / Math.PI;
+        default:
+            return n; // deg or unitless
+    }
 }
-/** Parse one channel token under the given interpretation. `none` → 0. */
+/** Parse one channel token under the given interpretation. `none` → 0; a token
+ *  that isn't a well-formed number (empty, non-numeric, a stray `/` from mixed
+ *  alpha syntax) → NaN, which the caller turns into a null parse. */
 function chan(tok, kind) {
     tok = tok.trim();
     if (tok === 'none')
@@ -7176,12 +7265,15 @@ function chan(tok, kind) {
     if (kind === 'angle')
         return parseAngle(tok);
     const pct = tok.endsWith('%');
-    const n = parseFloat(tok);
+    const numStr = pct ? tok.slice(0, -1) : tok;
+    if (!NUMBER_RE.test(numStr))
+        return NaN;
+    const n = parseFloat(numStr);
     switch (kind) {
         case 'rgb':
             return pct ? n / 100 : n / 255; // → 0..1
         case 'alpha':
-            return pct ? n / 100 : n; // → 0..1
+            return clamp01$1(pct ? n / 100 : n); // → 0..1, clamped
         case 'pct':
             return n; // hsl S/L, hwb W/B, lab/lch L: value is already 0..100
         case 'okL':
@@ -7197,21 +7289,25 @@ function chan(tok, kind) {
     }
 }
 /** Split a function's inner text into channel tokens + an optional alpha token,
- *  handling both legacy comma syntax and modern space / slash syntax. */
+ *  handling both legacy comma syntax and modern space / slash syntax. Returns
+ *  null for shapes that aren't valid CSS: a comma count other than 3 or 4, or
+ *  more than one `/` alpha separator. */
 function splitArgs(inner) {
     const t = inner.trim();
     if (t.includes(',')) {
         const parts = t.split(',').map((s) => s.trim());
-        // Legacy syntax is exactly 3 (no alpha) or 4 (with alpha) comma parts; any
-        // other count is malformed and falls through to the caller's strict check.
-        return parts.length === 4
-            ? { channels: parts.slice(0, 3), alpha: parts[3] }
-            : { channels: parts, alpha: null };
+        if (parts.length === 4)
+            return { channels: parts.slice(0, 3), alpha: parts[3] };
+        if (parts.length === 3)
+            return { channels: parts, alpha: null };
+        return null;
     }
-    const [body, alpha] = t.split('/');
+    const slash = t.split('/');
+    if (slash.length > 2)
+        return null;
     return {
-        channels: body.trim().split(/\s+/),
-        alpha: alpha != null ? alpha.trim() : null,
+        channels: slash[0].trim().split(/\s+/),
+        alpha: slash.length === 2 ? slash[1].trim() : null,
     };
 }
 function hexToSrgb(hex) {
@@ -7244,6 +7340,16 @@ const FUNCS = {
     oklab: { space: 'oklab', kinds: ['okL', 'okAB', 'okAB'] },
     oklch: { space: 'oklch', kinds: ['okL', 'okAB', 'angle'] },
 };
+/** Assemble a result, rejecting (→ null) when any coord or the alpha is NaN —
+ *  the signal that a channel token was ill-formed. */
+function result(space, coords, alpha) {
+    return Number.isNaN(coords[0]) ||
+        Number.isNaN(coords[1]) ||
+        Number.isNaN(coords[2]) ||
+        Number.isNaN(alpha)
+        ? null
+        : { space, coords, alpha };
+}
 function parse(css) {
     const s = css.trim().toLowerCase();
     if (s === 'transparent') {
@@ -7255,36 +7361,32 @@ function parse(css) {
     const fn = /^([a-z0-9-]+)\(([^)]*)\)$/.exec(s);
     if (fn) {
         const name = fn[1];
-        const { channels, alpha } = splitArgs(fn[2]);
+        const args = splitArgs(fn[2]);
+        if (!args) {
+            return null;
+        }
+        const { channels, alpha } = args;
         const a = alpha != null ? chan(alpha, 'alpha') : 1;
         if (name === 'color') {
             const space = COLOR_FN_SPACES[channels[0]];
             if (!space || channels.length !== 4) {
                 return null;
             }
-            return {
-                space,
-                coords: [
-                    chan(channels[1], 'unit'),
-                    chan(channels[2], 'unit'),
-                    chan(channels[3], 'unit'),
-                ],
-                alpha: a,
-            };
+            return result(space, [
+                chan(channels[1], 'unit'),
+                chan(channels[2], 'unit'),
+                chan(channels[3], 'unit'),
+            ], a);
         }
         const spec = FUNCS[name];
         if (!spec || channels.length !== 3) {
             return null;
         }
-        return {
-            space: spec.space,
-            coords: [
-                chan(channels[0], spec.kinds[0]),
-                chan(channels[1], spec.kinds[1]),
-                chan(channels[2], spec.kinds[2]),
-            ],
-            alpha: a,
-        };
+        return result(spec.space, [
+            chan(channels[0], spec.kinds[0]),
+            chan(channels[1], spec.kinds[1]),
+            chan(channels[2], spec.kinds[2]),
+        ], a);
     }
     const named = NAMED_COLORS[s];
     return named ? hexToSrgb(named) : null;
@@ -7652,7 +7754,19 @@ function extractColorString(trimmed) {
         return stripped;
     }
     const token = COLOR_TOKEN.exec(trimmed)?.[0];
-    return token && parses(token) ? token : null;
+    if (!token) {
+        return null;
+    }
+    if (parses(token)) {
+        return token;
+    }
+    // Last resort: a colour whose only fault is mixed separators — e.g. legacy
+    // commas combined with a `/ alpha` (`rgb(255, 0, 0 / 0.5)`), which the strict
+    // parser rejects. Normalise the function's commas to spaces and retry, so the
+    // real channels and the alpha are both kept. A genuinely missing channel
+    // collapses to nothing and still fails (too few channels) — we don't guess it.
+    const normalised = token.replace(/^([a-z]+)\((.*)\)$/i, (_m, fn, inner) => `${fn}(${inner.replace(/,/g, ' ')})`);
+    return normalised !== token && parses(normalised) ? normalised : null;
 }
 class OklchColor {
     /** Canonical OKLCH coords: [L 0..1, C 0..~0.4, H 0..360]. */
@@ -7687,8 +7801,8 @@ class OklchColor {
     }
     /** Alpha to serialise: opaque colours (or formats without alpha) use 1, which
      *  the serialiser omits — so the output stays clean. */
-    outAlpha(withAlpha = true) {
-        return withAlpha && this.format.hasAlpha ? this.alpha : 1;
+    outAlpha() {
+        return this.format.hasAlpha ? this.alpha : 1;
     }
     /** Coords to serialise for output `space`: gamut-mapped for the bounded spaces
      *  (RGB + HSL/HWB), matching how the old colorjs serialise mapped them; raw for
@@ -7985,6 +8099,7 @@ class OklchColor {
         this.format.spaceId === other.format.spaceId &&
             this.format.isHex === other.format.isHex &&
             this.format.isCss === other.format.isCss &&
+            this.format.hasAlpha === other.format.hasAlpha &&
             Math.abs(this.coords[0] - other.coords[0]) < e &&
             Math.abs(this.coords[1] - other.coords[1]) < e &&
             Math.abs(this.coords[2] - other.coords[2]) < e &&
@@ -8024,19 +8139,21 @@ const BOUNDARIES = [
     { space: 'p3', color: 'rgba(255,255,255,0.4)', width: 1, dash: [3, 3] },
 ];
 /**
- * Largest chroma that keeps OKLCH(`L`, ·, `hue`) inside `gamut`, by bisection.
- * Returns 0 when the gamut doesn't even contain the achromatic point at this
- * lightness (so the row contributes nothing).
+ * Largest in-gamut chroma at lightness `L`, by bisecting a prebuilt per-hue
+ * `probe` (see `oklchGamutProbe`). Returns 0 when the gamut doesn't even contain
+ * the achromatic point at this lightness (so the row contributes nothing). The
+ * probe is built once per hue/gamut and reused across every lightness — that
+ * reuse is the bulk of the per-frame saving.
  */
-function maxChroma(L, hue, gamut, ceiling = CHROMA_CEILING) {
-    if (!inGamut([L, 0, hue], 'oklch', gamut)) {
+function maxChroma(probe, L, ceiling = CHROMA_CEILING) {
+    if (!probe(L, 0)) {
         return 0;
     }
     let inside = 0;
     let outside = ceiling;
     for (let i = 0; i < BISECT_STEPS; i++) {
         const mid = (inside + outside) / 2;
-        if (inGamut([L, mid, hue], 'oklch', gamut)) {
+        if (probe(L, mid)) {
             inside = mid;
         }
         else {
@@ -8057,6 +8174,7 @@ const toByte = (v) => Math.round(Math.max(0, Math.min(1, v ?? 0)) * 255);
 /** Trace one gamut's boundary as canvas points, x normalised to the stretch edge. */
 function traceBoundary(spec, hue, stretch, W, H, dpr) {
     const STEPS = 100;
+    const probe = oklchGamutProbe(hue, spec.space);
     const points = [];
     for (let s = 0; s <= STEPS; s++) {
         const L = s / STEPS;
@@ -8068,7 +8186,7 @@ function traceBoundary(spec, hue, stretch, W, H, dpr) {
         // and P3 inside Rec2020) lands inside it. Tying the search to `edge` keeps
         // the ratio ordered and bounded even at the near-black/near-white extremes,
         // where `edge` itself is tiny and an independent search is noisy.
-        const c = maxChroma(L, hue, spec.space, edge);
+        const c = maxChroma(probe, L, edge);
         if (c <= 0) {
             continue; // gamut empty at this lightness
         }
@@ -8095,18 +8213,21 @@ function computeArea(req) {
     // Stretch reference: the chroma ceiling of `req.stretch` at each lightness.
     // Drives both the gradient's per-row width and the boundary x-normalisation —
     // so in an sRGB stretch the whole plane is exactly the sRGB gamut.
+    const stretchProbe = oklchGamutProbe(req.hue, req.stretch);
     const stretch = new Float64Array(CURVE_SAMPLES);
     for (let i = 0; i < CURVE_SAMPLES; i++) {
-        stretch[i] = maxChroma(i / (CURVE_SAMPLES - 1), req.hue, req.stretch);
+        stretch[i] = maxChroma(stretchProbe, i / (CURVE_SAMPLES - 1));
     }
     // Rasterise the gradient: column x maps to chroma (x/W of the row's stretch
     // max), row y maps to lightness (top = 1).
     const pixels = new Uint8ClampedArray(W * H * 4);
+    const invH = H > 1 ? 1 / (H - 1) : 0;
+    const invW = W > 1 ? 1 / (W - 1) : 0;
     for (let y = 0; y < H; y++) {
-        const L = 1 - y / (H - 1);
+        const L = 1 - y * invH;
         const rowMax = sampleCurve(stretch, L);
         for (let x = 0; x < W; x++) {
-            const chroma = (x / (W - 1)) * rowMax;
+            const chroma = x * invW * rowMax;
             const [r, g, b] = convert([L, chroma, req.hue], 'oklch', target);
             const o = (y * W + x) * 4;
             pixels[o] = toByte(r);
@@ -8123,7 +8244,7 @@ function computeArea(req) {
         ? []
         : BOUNDARIES.filter((spec) => GAMUT_RANK[spec.space] <= GAMUT_RANK[req.stretch]).map((spec) => traceBoundary(spec, req.hue, stretch, backingW, backingH, req.dpr));
     return {
-        pixels: pixels.buffer,
+        pixels,
         W,
         H,
         backingW,
@@ -8192,6 +8313,12 @@ class AreaPicker {
     #raf = null;
     // Pointer grab offset (thumb-centre → cursor), in normalised plane units.
     #grab = { x: 0, y: 0 };
+    // Offscreen raster canvas, reused across frames; resized only when the
+    // subsampled dimensions change (so a hue drag never reallocates it).
+    #off = null;
+    #offCtx = null;
+    #offW = 0;
+    #offH = 0;
     constructor(root, onChange) {
         this.#root = root;
         this.#canvas =
@@ -8426,16 +8553,26 @@ class AreaPicker {
         }
         this.#curve = area.chromaCurve;
         // Rasterise the gradient at low res offscreen, then scale it up smoothly.
-        const off = document.createElement('canvas');
-        off.width = area.W;
-        off.height = area.H;
-        const offCtx = off.getContext('2d', { colorSpace });
+        // Reuse the offscreen canvas across frames; resizing it (which also clears
+        // it) only when the subsampled dimensions change.
+        if (!this.#off || this.#offW !== area.W || this.#offH !== area.H) {
+            if (!this.#off) {
+                this.#off = document.createElement('canvas');
+            }
+            this.#off.width = area.W;
+            this.#off.height = area.H;
+            this.#offW = area.W;
+            this.#offH = area.H;
+            this.#offCtx = this.#off.getContext('2d', { colorSpace });
+        }
+        const offCtx = this.#offCtx;
         if (!offCtx) {
             return;
         }
-        const img = offCtx.createImageData(area.W, area.H);
-        img.data.set(new Uint8ClampedArray(area.pixels));
-        offCtx.putImageData(img, 0, 0);
+        // `area.pixels` is already a correctly-sized Uint8ClampedArray; wrap it as
+        // ImageData (tagged with the canvas colour space so P3 bytes aren't read as
+        // sRGB) and blit — no intermediate buffer allocation or copy.
+        offCtx.putImageData(new ImageData(area.pixels, area.W, area.H, { colorSpace }), 0, 0);
         canvas.width = area.backingW;
         canvas.height = area.backingH;
         const ctx = canvas.getContext('2d', { colorSpace });
@@ -8443,7 +8580,7 @@ class AreaPicker {
             return;
         }
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(off, 0, 0, area.backingW, area.backingH);
+        ctx.drawImage(this.#off, 0, 0, area.backingW, area.backingH);
         // computeArea only returns boundary curves in wide mode, so just draw them.
         area.boundaries.forEach((b) => strokeBoundary(ctx, b));
         // Thumb x depends on the chroma curve we just built.
