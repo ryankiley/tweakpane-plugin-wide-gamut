@@ -1,12 +1,34 @@
 {
   "name": "tweakpane-plugin-wide-gamut",
-  "version": "0.1.0",
-  "description": "Gamut-aware colour picker for Tweakpane v4 — the native picker UI with an sRGB/P3 gamut boundary, across 10 colour spaces (OKLCH, OKLab, LCH, Lab, RGB, HSL, HWB, HEX, P3, Rec2020). Colour area adapted from Adam Argyle's color-input.",
+  "version": "0.1.1",
+  "description": "Wide-gamut colour picker for Tweakpane v4 — the native picker UI with an sRGB/P3 gamut boundary, across 11 colour spaces (HEX, RGB, CSS, HSL, HWB, OKLCH, OKLab, LCH, Lab, P3, Rec2020). Colour area adapted from Adam Argyle's color-input.",
+  "keywords": [
+    "tweakpane",
+    "tweakpane-plugin",
+    "color",
+    "colour",
+    "color-picker",
+    "colour-picker",
+    "oklch",
+    "wide-gamut",
+    "p3",
+    "display-p3",
+    "rec2020",
+    "css-color"
+  ],
   "main": "dist/tweakpane-plugin-wide-gamut.js",
   "type": "module",
   "types": "dist/types/index.d.ts",
   "author": "Ryan Kiley",
   "license": "MIT",
+  "homepage": "https://ryankiley.github.io/tweakpane-plugin-wide-gamut/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryankiley/tweakpane-plugin-wide-gamut.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ryankiley/tweakpane-plugin-wide-gamut/issues"
+  },
   "files": [
     "dist"
   ],
