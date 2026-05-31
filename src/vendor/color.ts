@@ -2,7 +2,7 @@
  * Registers the colorjs.io colour spaces the picker parses and converts between
  * (sRGB, OKLCH, OKLab, LCH, Lab, HSL, HWB, P3, Rec2020, ProPhoto, A98, XYZ).
  * Imported for its side-effect by the model and the area-compute module.
- * Space list adapted from Adam Argyle's color-input (MIT).
+ * Space list adapted from Adam Argyle's color-input (MIT) — Copyright (c) 2024 Adam Argyle.
  */
 import * as colorjs from 'colorjs.io/fn';
 

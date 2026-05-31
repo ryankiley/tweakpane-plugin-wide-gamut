@@ -1,6 +1,7 @@
 /*
  * OKLCH colour-area picker — adapted from Adam Argyle's color-input (MIT)
  * https://github.com/argyleink/css-color-component
+ * Copyright (c) 2024 Adam Argyle
  *
  * Renders the OKLCH lightness×chroma plane at a fixed hue (with the sRGB/P3
  * gamut boundary) and handles pointer + keyboard editing. The chroma axis is

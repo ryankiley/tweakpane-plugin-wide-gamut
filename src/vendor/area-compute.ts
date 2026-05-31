@@ -1,6 +1,7 @@
 /*
  * OKLCH lightness×chroma plane compute — adapted from Adam Argyle's color-input
  * (MIT) https://github.com/argyleink/css-color-component
+ * Copyright (c) 2024 Adam Argyle
  *
  * Pure and synchronous: given a fixed hue and a canvas size, produce the
  * gradient pixels plus the gamut-boundary polylines. Lightness is the y axis
