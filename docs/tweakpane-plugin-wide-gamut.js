@@ -746,7 +746,7 @@ function createNumberFormatter(digits) {
     };
 }
 
-function mapRange$1(value, start1, end1, start2, end2) {
+function mapRange(value, start1, end1, start2, end2) {
     const p = (value - start1) / (end1 - start1);
     return start2 + p * (end2 - start2);
 }
@@ -3255,7 +3255,7 @@ class SliderView {
         this.update_();
     }
     update_() {
-        const p = constrainRange(mapRange$1(this.value.rawValue, this.props_.get('min'), this.props_.get('max'), 0, 100), 0, 100);
+        const p = constrainRange(mapRange(this.value.rawValue, this.props_.get('min'), this.props_.get('max'), 0, 100), 0, 100);
         this.knobElement.style.width = `${p}%`;
     }
     onChange_() {
@@ -3288,7 +3288,7 @@ class SliderController {
         if (!d.point) {
             return;
         }
-        this.value.setRawValue(mapRange$1(constrainRange(d.point.x, 0, d.bounds.width), 0, d.bounds.width, this.props.get('min'), this.props.get('max')), opts);
+        this.value.setRawValue(mapRange(constrainRange(d.point.x, 0, d.bounds.width), 0, d.bounds.width, this.props.get('min'), this.props.get('max')), opts);
     }
     onPointerDownOrMove_(ev) {
         this.handlePointerEvent_(ev.data, {
@@ -3907,9 +3907,9 @@ function convertFloatToInt(cf) {
     const comps = cf.getComponents();
     const ms = getColorMaxComponents(cf.mode, 'int');
     return new IntColor([
-        Math.round(mapRange$1(comps[0], 0, 1, 0, ms[0])),
-        Math.round(mapRange$1(comps[1], 0, 1, 0, ms[1])),
-        Math.round(mapRange$1(comps[2], 0, 1, 0, ms[2])),
+        Math.round(mapRange(comps[0], 0, 1, 0, ms[0])),
+        Math.round(mapRange(comps[1], 0, 1, 0, ms[1])),
+        Math.round(mapRange(comps[2], 0, 1, 0, ms[2])),
         comps[3],
     ], cf.mode);
 }
@@ -3917,9 +3917,9 @@ function convertIntToFloat(ci) {
     const comps = ci.getComponents();
     const ms = getColorMaxComponents(ci.mode, 'int');
     return new FloatColor([
-        mapRange$1(comps[0], 0, ms[0], 0, 1),
-        mapRange$1(comps[1], 0, ms[1], 0, 1),
-        mapRange$1(comps[2], 0, ms[2], 0, 1),
+        mapRange(comps[0], 0, ms[0], 0, 1),
+        mapRange(comps[1], 0, ms[1], 0, 1),
+        mapRange(comps[2], 0, ms[2], 0, 1),
         comps[3],
     ], ci.mode);
 }
@@ -4078,7 +4078,7 @@ function parseHexRgbaColorComponents(text) {
             parseInt(mRgb[1] + mRgb[1], 16),
             parseInt(mRgb[2] + mRgb[2], 16),
             parseInt(mRgb[3] + mRgb[3], 16),
-            mapRange$1(parseInt(mRgb[4] + mRgb[4], 16), 0, 255, 0, 1),
+            mapRange(parseInt(mRgb[4] + mRgb[4], 16), 0, 255, 0, 1),
         ];
     }
     const mRrggbb = text.match(/^(?:#|0x)?([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$/);
@@ -4087,7 +4087,7 @@ function parseHexRgbaColorComponents(text) {
             parseInt(mRrggbb[1], 16),
             parseInt(mRrggbb[2], 16),
             parseInt(mRrggbb[3], 16),
-            mapRange$1(parseInt(mRrggbb[4], 16), 0, 255, 0, 1),
+            mapRange(parseInt(mRrggbb[4], 16), 0, 255, 0, 1),
         ];
     }
     return null;
@@ -4467,7 +4467,7 @@ class APaletteView {
         ];
         this.colorElem_.style.background = `linear-gradient(${gradientComps.join(',')})`;
         this.previewElem_.style.backgroundColor = colorToFunctionalRgbaString(c);
-        const left = mapRange$1(rgbaComps[3], 0, 1, 0, 100);
+        const left = mapRange(rgbaComps[3], 0, 1, 0, 100);
         this.markerElem_.style.left = `${left}%`;
     }
     onValueChange_() {
@@ -4746,7 +4746,7 @@ class HPaletteView {
         const c = this.value.rawValue;
         const [h] = c.getComponents('hsv');
         this.markerElem_.style.backgroundColor = colorToFunctionalRgbString(new IntColor([h, 100, 100], 'hsv'));
-        const left = mapRange$1(h, 0, 360, 0, 100);
+        const left = mapRange(h, 0, 360, 0, 100);
         this.markerElem_.style.left = `${left}%`;
     }
     onValueChange_() {
@@ -4778,7 +4778,7 @@ class HPaletteController {
         if (!d.point) {
             return;
         }
-        const hue = mapRange$1(constrainRange(d.point.x, 0, d.bounds.width), 0, d.bounds.width, 0, 360);
+        const hue = mapRange(constrainRange(d.point.x, 0, d.bounds.width), 0, d.bounds.width, 0, 360);
         const c = this.value.rawValue;
         const [, s, v, a] = c.getComponents('hsv');
         this.value.setRawValue(new IntColor([hue, s, v, a], 'hsv'), opts);
@@ -4861,8 +4861,8 @@ class SvPaletteView {
         const data = imgData.data;
         for (let iy = 0; iy < height; iy++) {
             for (let ix = 0; ix < width; ix++) {
-                const s = mapRange$1(ix, 0, width, 0, 100);
-                const v = mapRange$1(iy, 0, height, 100, 0);
+                const s = mapRange(ix, 0, width, 0, 100);
+                const v = mapRange(iy, 0, height, 100, 0);
                 const rgbComps = hsvToRgbInt(hsvComps[0], s, v);
                 const i = (iy * width + ix) * 4;
                 data[i] = rgbComps[0];
@@ -4872,9 +4872,9 @@ class SvPaletteView {
             }
         }
         ctx.putImageData(imgData, 0, 0);
-        const left = mapRange$1(hsvComps[1], 0, 100, 0, 100);
+        const left = mapRange(hsvComps[1], 0, 100, 0, 100);
         this.markerElem_.style.left = `${left}%`;
-        const top = mapRange$1(hsvComps[2], 0, 100, 100, 0);
+        const top = mapRange(hsvComps[2], 0, 100, 100, 0);
         this.markerElem_.style.top = `${top}%`;
     }
     onValueChange_() {
@@ -4906,8 +4906,8 @@ class SvPaletteController {
         if (!d.point) {
             return;
         }
-        const saturation = mapRange$1(d.point.x, 0, d.bounds.width, 0, 100);
-        const value = mapRange$1(d.point.y, 0, d.bounds.height, 100, 0);
+        const saturation = mapRange(d.point.x, 0, d.bounds.width, 0, 100);
+        const value = mapRange(d.point.y, 0, d.bounds.height, 100, 0);
         const [h, , , a] = this.value.rawValue.getComponents('hsv');
         this.value.setRawValue(new IntColor([h, saturation, value, a], 'hsv'), opts);
     }
@@ -5197,7 +5197,7 @@ function numberToRgbaColor(num) {
         (num >> 24) & 0xff,
         (num >> 16) & 0xff,
         (num >> 8) & 0xff,
-        mapRange$1(num & 0xff, 0, 255, 0, 1),
+        mapRange(num & 0xff, 0, 255, 0, 1),
     ], 'rgb');
 }
 function colorFromRgbNumber(value) {
@@ -5754,8 +5754,8 @@ class Point2dPickerView {
     update_() {
         const [x, y] = this.value.rawValue.getComponents();
         const max = this.props_.get('max');
-        const px = mapRange$1(x, -max, +max, 0, 100);
-        const py = mapRange$1(y, -max, +max, 0, 100);
+        const px = mapRange(x, -max, +max, 0, 100);
+        const py = mapRange(y, -max, +max, 0, 100);
         const ipy = this.props_.get('invertsY') ? 100 - py : py;
         this.lineElem_.setAttributeNS(null, 'x2', `${px}%`);
         this.lineElem_.setAttributeNS(null, 'y2', `${ipy}%`);
@@ -5807,8 +5807,8 @@ class Point2dPickerController {
             return;
         }
         const max = this.props.get('max');
-        const px = mapRange$1(d.point.x, 0, d.bounds.width, -max, +max);
-        const py = mapRange$1(this.props.get('invertsY') ? d.bounds.height - d.point.y : d.point.y, 0, d.bounds.height, -max, +max);
+        const px = mapRange(d.point.x, 0, d.bounds.width, -max, +max);
+        const py = mapRange(this.props.get('invertsY') ? d.bounds.height - d.point.y : d.point.y, 0, d.bounds.height, -max, +max);
         this.value.setRawValue(new Point2d(px, py), opts);
     }
     onPointerDown_(ev) {
@@ -6530,8 +6530,8 @@ class GraphLogView {
             if (v === undefined) {
                 return;
             }
-            const x = mapRange$1(index, 0, maxIndex, 0, w);
-            const y = mapRange$1(v, min, max, h, 0);
+            const x = mapRange(index, 0, maxIndex, 0, w);
+            const y = mapRange(v, min, max, h, 0);
             points.push([x, y].join(','));
         });
         this.lineElem_.setAttributeNS(null, 'points', points.join(' '));
@@ -6541,8 +6541,8 @@ class GraphLogView {
             tooltipElem.classList.remove(cn$2('t', 'a'));
             return;
         }
-        const tx = mapRange$1(this.cursor_.rawValue, 0, maxIndex, 0, w);
-        const ty = mapRange$1(value, min, max, h, 0);
+        const tx = mapRange(this.cursor_.rawValue, 0, maxIndex, 0, w);
+        const ty = mapRange(value, min, max, h, 0);
         tooltipElem.style.left = `${tx}px`;
         tooltipElem.style.top = `${ty}px`;
         tooltipElem.textContent = `${this.formatter_(value)}`;
@@ -6611,7 +6611,7 @@ class GraphLogController {
     }
     onGraphMouseMove_(ev) {
         const { clientWidth: w } = this.view.element;
-        this.cursor_.rawValue = Math.floor(mapRange$1(ev.offsetX, 0, w, 0, this.value.rawValue.length));
+        this.cursor_.rawValue = Math.floor(mapRange(ev.offsetX, 0, w, 0, this.value.rawValue.length));
     }
     onGraphPointerDown_(ev) {
         this.onGraphPointerMove_(ev);
@@ -6621,7 +6621,7 @@ class GraphLogController {
             this.cursor_.rawValue = -1;
             return;
         }
-        this.cursor_.rawValue = Math.floor(mapRange$1(ev.data.point.x, 0, ev.data.bounds.width, 0, this.value.rawValue.length));
+        this.cursor_.rawValue = Math.floor(mapRange(ev.data.point.x, 0, ev.data.bounds.width, 0, this.value.rawValue.length));
     }
     onGraphPointerUp_() {
         this.cursor_.rawValue = -1;
@@ -6745,3026 +6745,751 @@ createPlugin({
     },
 });
 
-function dot3 (a, b) {
-	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-function multiply_v3_m3x3 (input, matrix, out = [0, 0, 0]) {
-	const x = dot3(input, matrix[0]);
-	const y = dot3(input, matrix[1]);
-	const z = dot3(input, matrix[2]);
-	out[0] = x;
-	out[1] = y;
-	out[2] = z;
-	return out;
-}
-
-function isString (str) {
-	return type(str) === "string";
-}
-function type (o) {
-	let str = Object.prototype.toString.call(o);
-	return (str.match(/^\[object\s+(.*?)\]$/)[1] || "").toLowerCase();
-}
-function serializeNumber (n, { precision = 16, unit }) {
-	if (isNone(n)) {
-		return "none";
-	}
-	n = +toPrecision(n, precision);
-	return n + (unit ?? "");
-}
-function isNone (n) {
-	return n === null;
-}
-function toPrecision (n, precision) {
-	if (n === 0) {
-		return 0;
-	}
-	let integer = ~~n;
-	let digits = 0;
-	if (integer && precision) {
-		digits = ~~Math.log10(Math.abs(integer)) + 1;
-	}
-	const multiplier = 10.0 ** (precision - digits);
-	return Math.floor(n * multiplier + 0.5) / multiplier;
-}
-function interpolate (start, end, p) {
-	if (isNaN(start)) {
-		return end;
-	}
-	if (isNaN(end)) {
-		return start;
-	}
-	return start + (end - start) * p;
-}
-function interpolateInv (start, end, value) {
-	return (value - start) / (end - start);
-}
-function mapRange (from, to, value) {
-	if (
-		!from ||
-		!to ||
-		from === to ||
-		(from[0] === to[0] && from[1] === to[1]) ||
-		isNaN(value) ||
-		value === null
-	) {
-		return value;
-	}
-	return interpolate(to[0], to[1], interpolateInv(from[0], from[1], value));
-}
-function clamp$1 (min, val, max) {
-	return Math.max(Math.min(max, val), min);
-}
-function copySign (to, from) {
-	return Math.sign(to) === Math.sign(from) ? to : -to;
-}
-function spow (base, exp) {
-	return copySign(Math.abs(base) ** exp, base);
-}
-function zdiv (n, d) {
-	return d === 0 ? 0 : n / d;
-}
-function bisectLeft (arr, value, lo = 0, hi = arr.length) {
-	while (lo < hi) {
-		const mid = (lo + hi) >> 1;
-		if (arr[mid] < value) {
-			lo = mid + 1;
-		}
-		else {
-			hi = mid;
-		}
-	}
-	return lo;
-}
-function isInstance (arg, constructor) {
-	if (arg instanceof constructor) {
-		return true;
-	}
-	const targetName = constructor.name;
-	while (arg) {
-		const proto = Object.getPrototypeOf(arg);
-		const constructorName = proto?.constructor?.name;
-		if (constructorName === targetName) {
-			return true;
-		}
-		if (!constructorName || constructorName === "Object") {
-			return false;
-		}
-		arg = proto;
-	}
-	return false;
-}
-
-class Type {
-	type;
-	coordMeta;
-	coordRange;
-	range;
-	constructor (type, coordMeta) {
-		if (typeof type === "object") {
-			this.coordMeta = type;
-		}
-		if (coordMeta) {
-			this.coordMeta = coordMeta;
-			this.coordRange = coordMeta.range ?? coordMeta.refRange;
-		}
-		if (typeof type === "string") {
-			let params = type
-				.trim()
-				.match(/^(?<type><[a-z]+>)(\[(?<min>-?[.\d]+),\s*(?<max>-?[.\d]+)\])?$/);
-			if (!params) {
-				throw new TypeError(`Cannot parse ${type} as a type definition.`);
-			}
-			this.type = params.groups.type;
-			let { min, max } = params.groups;
-			if (min || max) {
-				this.range = [+min, +max];
-			}
-		}
-	}
-	get computedRange () {
-		if (this.range) {
-			return this.range;
-		}
-		if (this.type === "<percentage>") {
-			return this.percentageRange();
-		}
-		else if (this.type === "<angle>") {
-			return [0, 360];
-		}
-		return null;
-	}
-	get unit () {
-		if (this.type === "<percentage>") {
-			return "%";
-		}
-		else if (this.type === "<angle>") {
-			return "deg";
-		}
-		return "";
-	}
-	resolve (number) {
-		if (this.type === "<angle>") {
-			return number;
-		}
-		let fromRange = this.computedRange;
-		let toRange = this.coordRange;
-		if (this.type === "<percentage>") {
-			toRange ??= this.percentageRange();
-		}
-		return mapRange(fromRange, toRange, number);
-	}
-	serialize (number, precision) {
-		let toRange = this.type === "<percentage>" ? this.percentageRange(100) : this.computedRange;
-		let unit = this.unit;
-		number = mapRange(this.coordRange, toRange, number);
-		return serializeNumber(number, { unit, precision });
-	}
-	toString () {
-		let ret = this.type;
-		if (this.range) {
-			let [min = "", max = ""] = this.range;
-			ret += `[${min},${max}]`;
-		}
-		return ret;
-	}
-	percentageRange (scale = 1) {
-		let range;
-		if (
-			(this.coordMeta && this.coordMeta.range) ||
-			(this.coordRange && this.coordRange[0] >= 0)
-		) {
-			range = [0, 1];
-		}
-		else {
-			range = [-1, 1];
-		}
-		return [range[0] * scale, range[1] * scale];
-	}
-	static get (type, coordMeta) {
-		if (isInstance(type, this)) {
-			return type;
-		}
-		return new this(type, coordMeta);
-	}
-}
-
-const instance = Symbol("instance");
-class Format {
-	type;
-	name;
-	spaceCoords;
-	coords;
-	id;
-	alpha;
-	constructor (format, space = format.space) {
-		format[instance] = this;
-		this.type = "function";
-		this.name = "color";
-		Object.assign(this, format);
-		this.space = space;
-		if (this.type === "custom") {
-			return;
-		}
-		this.spaceCoords = Object.values(space.coords);
-		if (!this.coords) {
-			this.coords = this.spaceCoords.map(coordMeta => {
-				let ret = ["<number>", "<percentage>"];
-				if (coordMeta.type === "angle") {
-					ret.push("<angle>");
-				}
-				return ret;
-			});
-		}
-		this.coords = this.coords.map(
-			 (types, i) => {
-				let coordMeta = this.spaceCoords[i];
-				if (typeof types === "string") {
-					types = types.trim().split(/\s*\|\s*/);
-				}
-				return types.map(type => Type.get(type, coordMeta));
-			},
-		);
-	}
-	serializeCoords (coords, precision, types) {
-		types = coords.map((_, i) =>
-			Type.get(types?.[i] ?? this.coords[i][0], this.spaceCoords[i]));
-		return coords.map((c, i) => types[i].serialize(c, precision));
-	}
-	coerceCoords (coords, types) {
-		return Object.entries(this.space.coords).map(([id, coordMeta], i) => {
-			let arg = coords[i];
-			if (isNone(arg) || isNaN(arg)) {
-				return arg;
-			}
-			let providedType = types[i];
-			let type = this.coords[i].find(c => c.type == providedType);
-			if (!type) {
-				let coordName = coordMeta.name || id;
-				throw new TypeError(
-					`${providedType ??  (arg)?.raw ?? arg} not allowed for ${coordName} in ${this.name}()`,
-				);
-			}
-			arg = type.resolve(arg);
-			if (type.range) {
-				types[i] = type.toString();
-			}
-			return arg;
-		});
-	}
-	canSerialize () {
-		return this.type === "function" ||  (this).serialize;
-	}
-	parse (str) {
-		return null;
-	}
-	static get (format, ...args) {
-		if (!format || isInstance(format, this)) {
-			return  (format);
-		}
-		if (format[instance]) {
-			return format[instance];
-		}
-		return new Format(format, ...args);
-	}
-}
-
-class Hooks {
-	add (name, callback, first) {
-		if (typeof arguments[0] != "string") {
-			for (var name in arguments[0]) {
-				this.add(name, arguments[0][name], arguments[1]);
-			}
-			return;
-		}
-		(Array.isArray(name) ? name : [name]).forEach(function (name) {
-			this[name] = this[name] || [];
-			if (callback) {
-				this[name][first ? "unshift" : "push"](callback);
-			}
-		}, this);
-	}
-	run (name, env) {
-		this[name] = this[name] || [];
-		this[name].forEach(function (callback) {
-			callback.call(env && env.context ? env.context : env, env);
-		});
-	}
-}
-const hooks = new Hooks();
-var hooks$1 = hooks;
-
-const WHITES = {
-	D50: [0.3457 / 0.3585, 1.00000, (1.0 - 0.3457 - 0.3585) / 0.3585],
-	D65: [0.3127 / 0.3290, 1.00000, (1.0 - 0.3127 - 0.3290) / 0.3290],
-};
-function getWhite (name) {
-	if (Array.isArray(name)) {
-		return name;
-	}
-	return WHITES[name];
-}
-function adapt$1 (W1, W2, XYZ, options = {}) {
-	W1 = getWhite(W1);
-	W2 = getWhite(W2);
-	if (!W1 || !W2) {
-		throw new TypeError(
-			`Missing white point to convert ${!W1 ? "from" : ""}${!W1 && !W2 ? "/" : ""}${!W2 ? "to" : ""}`,
-		);
-	}
-	if (W1 === W2) {
-		return XYZ;
-	}
-	let env = { W1, W2, XYZ, options };
-	hooks$1.run("chromatic-adaptation-start", env);
-	if (!env.M) {
-		if (env.W1 === WHITES.D65 && env.W2 === WHITES.D50) {
-			env.M = [
-				[  1.0479297925449969,   0.022946870601609652, -0.05019226628920524  ],
-				[  0.02962780877005599,  0.9904344267538799,   -0.017073799063418826 ],
-				[ -0.009243040646204504, 0.015055191490298152,  0.7518742814281371   ],
-			];
-		}
-		else if (env.W1 === WHITES.D50 && env.W2 === WHITES.D65) {
-			env.M = [
-				[  0.955473421488075,    -0.02309845494876471,  0.06325924320057072  ],
-				[ -0.0283697093338637,    1.0099953980813041,   0.021041441191917323 ],
-				[  0.012314014864481998, -0.020507649298898964, 1.330365926242124    ],
-			];
-		}
-	}
-	hooks$1.run("chromatic-adaptation-end", env);
-	if (env.M) {
-		return multiply_v3_m3x3(env.XYZ, env.M);
-	}
-	else {
-		throw new TypeError("Only Bradford CAT with white points D50 and D65 supported for now.");
-	}
-}
-
-var defaults = {
-	gamut_mapping: "css",
-	precision: 5,
-	deltaE: "76",
-	verbose: globalThis?.process?.env?.NODE_ENV?.toLowerCase() !== "test",
-	warn: function warn (msg) {
-		if (this.verbose) {
-			globalThis?.console?.warn?.(msg);
-		}
-	},
-};
-
-function parse (str, options) {
-	let env = {
-		str: String(str)?.trim(),
-		options,
-	};
-	hooks$1.run("parse-start", env);
-	if (env.color) {
-		return env.color;
-	}
-	env.parsed = parseFunction(env.str);
-	let ret;
-	let meta = env.options ? (env.options.parseMeta ?? env.options.meta) : null;
-	if (env.parsed) {
-		let name = env.parsed.name;
-		let format;
-		let space;
-		let coords = env.parsed.args;
-		let types = coords.map((c, i) => env.parsed.argMeta[i]?.type);
-		if (name === "color") {
-			let id = coords.shift();
-			types.shift();
-			let alternateId = id.startsWith("--") ? id.substring(2) : `--${id}`;
-			let ids = [id, alternateId];
-			format = ColorSpace.findFormat({ name, id: ids, type: "function" });
-			if (!format) {
-				let didYouMean;
-				let registryId = id in ColorSpace.registry ? id : alternateId;
-				if (registryId in ColorSpace.registry) {
-					let cssId = ColorSpace.registry[registryId].formats?.color?.id;
-					if (cssId) {
-						let altColor = str.replace("color(" + id, "color(" + cssId);
-						didYouMean = `Did you mean ${altColor}?`;
-					}
-				}
-				throw new TypeError(
-					`Cannot parse ${env.str}. ` + (didYouMean ?? "Missing a plugin?"),
-				);
-			}
-			space = format.space;
-			if (format.id.startsWith("--") && !id.startsWith("--")) {
-				defaults.warn(
-					`${space.name} is a non-standard space and not currently supported in the CSS spec. ` +
-						`Use prefixed color(${format.id}) instead of color(${id}).`,
-				);
-			}
-			if (id.startsWith("--") && !format.id.startsWith("--")) {
-				defaults.warn(
-					`${space.name} is a standard space and supported in the CSS spec. ` +
-						`Use color(${format.id}) instead of prefixed color(${id}).`,
-				);
-			}
-		}
-		else {
-			format = ColorSpace.findFormat({ name, type: "function" });
-			space = format.space;
-		}
-		if (meta) {
-			Object.assign(meta, {
-				format,
-				formatId: format.name,
-				types,
-				commas: env.parsed.commas,
-			});
-		}
-		let alpha = 1;
-		if (env.parsed.lastAlpha) {
-			alpha = env.parsed.args.pop();
-			if (meta) {
-				meta.alphaType = types.pop();
-			}
-		}
-		let coordCount = format.coords.length;
-		if (coords.length !== coordCount) {
-			throw new TypeError(
-				`Expected ${coordCount} coordinates for ${space.id} in ${env.str}), got ${coords.length}`,
-			);
-		}
-		coords = format.coerceCoords(coords, types);
-		ret = { spaceId: space.id, coords, alpha };
-	}
-	else {
-		spaceloop: for (let space of ColorSpace.all) {
-			for (let formatId in space.formats) {
-				let format = space.formats[formatId];
-				if (format.type !== "custom") {
-					continue;
-				}
-				if (format.test && !format.test(env.str)) {
-					continue;
-				}
-				let formatObject = space.getFormat(format);
-				let color = formatObject.parse(env.str);
-				if (color) {
-					if (meta) {
-						Object.assign(meta, { format: formatObject, formatId });
-					}
-					ret = color;
-					break spaceloop;
-				}
-			}
-		}
-	}
-	if (!ret) {
-		throw new TypeError(`Could not parse ${str} as a color. Missing a plugin?`);
-	}
-	ret.alpha = isNone(ret.alpha)
-		? ret.alpha
-		: ret.alpha === undefined
-			? 1
-			: clamp$1(0, ret.alpha, 1);
-	return ret;
-}
-const units = {
-	"%": 0.01,
-	deg: 1,
-	grad: 0.9,
-	rad: 180 / Math.PI,
-	turn: 360,
-};
-const regex = {
-	function: /^([a-z]+)\(((?:calc\(NaN\)|.)+?)\)$/i,
-	number: /^([-+]?(?:[0-9]*\.)?[0-9]+(e[-+]?[0-9]+)?)$/i,
-	unitValue: RegExp(`(${Object.keys(units).join("|")})$`),
-	singleArgument: /\/?\s*(none|NaN|calc\(NaN\)|[-+\w.]+(?:%|deg|g?rad|turn)?)/g,
-};
-function parseArgument (rawArg) {
-	let meta = {};
-	let unit = rawArg.match(regex.unitValue)?.[0];
-	let value = (meta.raw = rawArg);
-	if (unit) {
-		meta.type = unit === "%" ? "<percentage>" : "<angle>";
-		meta.unit = unit;
-		meta.unitless = Number(value.slice(0, -unit.length));
-		value = meta.unitless * units[unit];
-	}
-	else if (regex.number.test(value)) {
-		value = Number(value);
-		meta.type = "<number>";
-	}
-	else if (value === "none") {
-		value = null;
-	}
-	else if (value === "NaN" || value === "calc(NaN)") {
-		value = NaN;
-		meta.type = "<number>";
-	}
-	else {
-		meta.type = "<ident>";
-	}
-	return { value:  (value), meta:  (meta) };
-}
-function parseFunction (str) {
-	if (!str) {
-		return;
-	}
-	str = str.trim();
-	let parts = str.match(regex.function);
-	if (parts) {
-		let args = [];
-		let argMeta = [];
-		let lastAlpha = false;
-		let name = parts[1].toLowerCase();
-		let separators = parts[2].replace(regex.singleArgument, ($0, rawArg) => {
-			let { value, meta } = parseArgument(rawArg);
-			if (
-				$0.startsWith("/") ||
-				(name !== "color" && args.length === 3)
-			) {
-				lastAlpha = true;
-			}
-			args.push(value);
-			argMeta.push(meta);
-			return "";
-		});
-		return {
-			name,
-			args,
-			argMeta,
-			lastAlpha,
-			commas: separators.includes(","),
-			rawName: parts[1],
-			rawArgs: parts[2],
-		};
-	}
-}
-
-function getColor (color, options) {
-	if (Array.isArray(color)) {
-		return color.map(c => getColor(c, options));
-	}
-	if (!color) {
-		throw new TypeError("Empty color reference");
-	}
-	if (isString(color)) {
-		color = parse(color, options);
-	}
-	let space = color.space || color.spaceId;
-	if (typeof space === "string") {
-		color.space = ColorSpace.get(space);
-	}
-	if (color.alpha === undefined) {
-		color.alpha = 1;
-	}
-	return color;
-}
-
-const ε$3 = 0.000075;
-class ColorSpace {
-	constructor (options) {
-		this.id = options.id;
-		this.name = options.name;
-		this.base = options.base ? ColorSpace.get(options.base) : null;
-		this.aliases = options.aliases;
-		if (this.base) {
-			this.fromBase = options.fromBase;
-			this.toBase = options.toBase;
-		}
-		let coords = options.coords ?? this.base.coords;
-		for (let name in coords) {
-			if (!("name" in coords[name])) {
-				coords[name].name = name;
-			}
-		}
-		this.coords = coords;
-		let white = options.white ?? this.base.white ?? "D65";
-		this.white = getWhite(white);
-		this.formats = options.formats ?? {};
-		for (let name in this.formats) {
-			let format = this.formats[name];
-			format.type ||= "function";
-			format.name ||= name;
-		}
-		if (!this.formats.color?.id) {
-			this.formats.color = {
-				...(this.formats.color ?? {}),
-				id: options.cssId || this.id,
-			};
-		}
-		if (options.gamutSpace) {
-			this.gamutSpace =
-				options.gamutSpace === "self" ? this : ColorSpace.get(options.gamutSpace);
-		}
-		else {
-			if (this.isPolar) {
-				this.gamutSpace = this.base;
-			}
-			else {
-				this.gamutSpace = this;
-			}
-		}
-		if (this.gamutSpace.isUnbounded) {
-			this.inGamut = (coords, options) => {
-				return true;
-			};
-		}
-		this.referred = options.referred;
-		Object.defineProperty(this, "path", {
-			value: getPath(this).reverse(),
-			writable: false,
-			enumerable: true,
-			configurable: true,
-		});
-		hooks$1.run("colorspace-init-end", this);
-	}
-	inGamut (coords, { epsilon = ε$3 } = {}) {
-		if (!this.equals(this.gamutSpace)) {
-			coords = this.to(this.gamutSpace, coords);
-			return this.gamutSpace.inGamut(coords, { epsilon });
-		}
-		let coordMeta = Object.values(this.coords);
-		return coords.every((c, i) => {
-			let meta = coordMeta[i];
-			if (meta.type !== "angle" && meta.range) {
-				if (isNone(c)) {
-					return true;
-				}
-				let [min, max] = meta.range;
-				return (
-					(min === undefined || c >= min - epsilon) &&
-					(max === undefined || c <= max + epsilon)
-				);
-			}
-			return true;
-		});
-	}
-	get isUnbounded () {
-		return Object.values(this.coords).every(coord => !("range" in coord));
-	}
-	get cssId () {
-		return this.formats?.color?.id || this.id;
-	}
-	get isPolar () {
-		for (let id in this.coords) {
-			if (this.coords[id].type === "angle") {
-				return true;
-			}
-		}
-		return false;
-	}
-	getFormat (format) {
-		if (!format) {
-			return null;
-		}
-		if (format === "default") {
-			format = Object.values(this.formats)[0];
-		}
-		else if (typeof format === "string") {
-			format = this.formats[format];
-		}
-		let ret = Format.get(format, this);
-		if (ret !== format && format.name in this.formats) {
-			this.formats[format.name] = ret;
-		}
-		return ret;
-	}
-	equals (space) {
-		if (!space) {
-			return false;
-		}
-		return this === space || this.id === space || this.id === space.id;
-	}
-	to (space, coords) {
-		if (arguments.length === 1) {
-			const color = getColor(space);
-			[space, coords] = [color.space, color.coords];
-		}
-		space = ColorSpace.get(space);
-		if (this.equals(space)) {
-			return coords;
-		}
-		coords = coords.map(c => (isNone(c) ? 0 : c));
-		let myPath = this.path;
-		let otherPath = space.path;
-		let connectionSpace, connectionSpaceIndex;
-		for (let i = 0; i < myPath.length; i++) {
-			if (myPath[i].equals(otherPath[i])) {
-				connectionSpace = myPath[i];
-				connectionSpaceIndex = i;
-			}
-			else {
-				break;
-			}
-		}
-		if (!connectionSpace) {
-			throw new Error(
-				`Cannot convert between color spaces ${this} and ${space}: no connection space was found`,
-			);
-		}
-		for (let i = myPath.length - 1; i > connectionSpaceIndex; i--) {
-			coords = myPath[i].toBase(coords);
-		}
-		for (let i = connectionSpaceIndex + 1; i < otherPath.length; i++) {
-			coords = otherPath[i].fromBase(coords);
-		}
-		return coords;
-	}
-	from (space, coords) {
-		if (arguments.length === 1) {
-			const color = getColor(space);
-			[space, coords] = [color.space, color.coords];
-		}
-		space = ColorSpace.get(space);
-		return space.to(this, coords);
-	}
-	toString () {
-		return `${this.name} (${this.id})`;
-	}
-	getMinCoords () {
-		let ret = [];
-		for (let id in this.coords) {
-			let meta = this.coords[id];
-			let range = meta.range || meta.refRange;
-			ret.push(range?.min ?? 0);
-		}
-		return ret;
-	}
-	static registry = {};
-	static get all () {
-		return [...new Set(Object.values(ColorSpace.registry))];
-	}
-	static register (id, space) {
-		if (arguments.length === 1) {
-			space = arguments[0];
-			id = space.id;
-		}
-		space = this.get(space);
-		if (this.registry[id] && this.registry[id] !== space) {
-			throw new Error(`Duplicate color space registration: '${id}'`);
-		}
-		this.registry[id] = space;
-		if (arguments.length === 1 && space.aliases) {
-			for (let alias of space.aliases) {
-				this.register(alias, space);
-			}
-		}
-		return space;
-	}
-	static get (space, ...alternatives) {
-		if (!space || isInstance(space, this)) {
-			return space;
-		}
-		let argType = type(space);
-		if (argType === "string") {
-			let ret = ColorSpace.registry[space.toLowerCase()];
-			if (!ret) {
-				throw new TypeError(`No color space found with id = "${space}"`);
-			}
-			return ret;
-		}
-		if (alternatives.length) {
-			return ColorSpace.get(...alternatives);
-		}
-		throw new TypeError(`${space} is not a valid color space`);
-	}
-	static findFormat (filters, spaces = ColorSpace.all) {
-		if (!filters) {
-			return null;
-		}
-		if (typeof filters === "string") {
-			filters = { name: filters };
-		}
-		for (let space of spaces) {
-			for (let [name, format] of Object.entries(space.formats)) {
-				format.name ??= name;
-				format.type ??= "function";
-				let matches =
-					(!filters.name || format.name === filters.name) &&
-					(!filters.type || format.type === filters.type);
-				if (filters.id) {
-					let ids = format.ids || [format.id];
-					let filterIds = Array.isArray(filters.id) ? filters.id : [filters.id];
-					matches &&= filterIds.some(id => ids.includes(id));
-				}
-				if (matches) {
-					let ret = Format.get(format, space);
-					if (ret !== format) {
-						space.formats[format.name] = ret;
-					}
-					return ret;
-				}
-			}
-		}
-		return null;
-	}
-	static resolveCoord (ref, workingSpace) {
-		let coordType = type(ref);
-		let space, coord;
-		if (coordType === "string") {
-			if (ref.includes(".")) {
-				[space, coord] = ref.split(".");
-			}
-			else {
-				[space, coord] = [, ref];
-			}
-		}
-		else if (Array.isArray(ref)) {
-			[space, coord] = ref;
-		}
-		else {
-			space = ref.space;
-			coord = ref.coordId;
-		}
-		space = ColorSpace.get(space);
-		if (!space) {
-			space = workingSpace;
-		}
-		if (!space) {
-			throw new TypeError(
-				`Cannot resolve coordinate reference ${ref}: No color space specified and relative references are not allowed here`,
-			);
-		}
-		coordType = type(coord);
-		if (coordType === "number" || (coordType === "string" && coord >= 0)) {
-			let meta = Object.entries(space.coords)[coord];
-			if (meta) {
-				return { space, id: meta[0], index: coord, ...meta[1] };
-			}
-		}
-		space = ColorSpace.get(space);
-		let normalizedCoord = coord.toLowerCase();
-		let i = 0;
-		for (let id in space.coords) {
-			let meta = space.coords[id];
-			if (
-				id.toLowerCase() === normalizedCoord ||
-				meta.name?.toLowerCase() === normalizedCoord
-			) {
-				return { space, id, index: i, ...meta };
-			}
-			i++;
-		}
-		throw new TypeError(
-			`No "${coord}" coordinate found in ${space.name}. Its coordinates are: ${Object.keys(space.coords).join(", ")}`,
-		);
-	}
-	static DEFAULT_FORMAT = {
-		type: "functions",
-		name: "color",
-	};
-}
-function getPath (space) {
-	let ret = [space];
-	for (let s = space; (s = s.base); ) {
-		ret.push(s);
-	}
-	return ret;
-}
-
-var xyz_d65 = new ColorSpace({
-	id: "xyz-d65",
-	name: "XYZ D65",
-	coords: {
-		x: {
-			refRange: [0, 1],
-			name: "X",
-		},
-		y: {
-			refRange: [0, 1],
-			name: "Y",
-		},
-		z: {
-			refRange: [0, 1],
-			name: "Z",
-		},
-	},
-	white: "D65",
-	formats: {
-		color: {
-			ids: ["xyz-d65", "xyz"],
-		},
-	},
-	aliases: ["xyz"],
-});
-
-class RGBColorSpace extends ColorSpace {
-	constructor (options) {
-		if (!options.coords) {
-			options.coords = {
-				r: {
-					range: [0, 1],
-					name: "Red",
-				},
-				g: {
-					range: [0, 1],
-					name: "Green",
-				},
-				b: {
-					range: [0, 1],
-					name: "Blue",
-				},
-			};
-		}
-		if (!options.base) {
-			options.base = xyz_d65;
-		}
-		if (options.toXYZ_M && options.fromXYZ_M) {
-			options.toBase ??= rgb => {
-				let xyz = multiply_v3_m3x3(rgb, options.toXYZ_M);
-				if (this.white !== this.base.white) {
-					xyz = adapt$1(this.white, this.base.white, xyz);
-				}
-				return xyz;
-			};
-			options.fromBase ??= xyz => {
-				xyz = adapt$1(this.base.white, this.white, xyz);
-				return multiply_v3_m3x3(xyz, options.fromXYZ_M);
-			};
-		}
-		options.referred ??= "display";
-		super(options);
-	}
-}
-
-function getAll (color, options) {
-	color = getColor(color);
-	let space = ColorSpace.get(options, options?.space);
-	let precision = options?.precision;
-	let coords;
-	if (!space || color.space.equals(space)) {
-		coords = color.coords.slice();
-	}
-	else {
-		coords = space.from(color);
-	}
-	return precision === undefined ? coords : coords.map(coord => toPrecision(coord, precision));
-}
-
-function get (color, prop) {
-	color = getColor(color);
-	if (prop === "alpha") {
-		return color.alpha ?? 1;
-	}
-	let { space, index } = ColorSpace.resolveCoord(prop, color.space);
-	let coords = getAll(color, space);
-	return coords[index];
-}
-
-function setAll (color, space, coords, alpha) {
-	color = getColor(color);
-	if (Array.isArray(space)) {
-		[space, coords, alpha] = [color.space, space, coords];
-	}
-	space = ColorSpace.get(space);
-	color.coords = space === color.space ? coords.slice() : space.to(color.space, coords);
-	if (alpha !== undefined) {
-		color.alpha = alpha;
-	}
-	return color;
-}
-setAll.returns = "color";
-
-function set (color, prop, value) {
-	color = getColor(color);
-	if (arguments.length === 2 && type(arguments[1]) === "object") {
-		let object = arguments[1];
-		for (let p in object) {
-			set(color, p, object[p]);
-		}
-	}
-	else {
-		if (typeof value === "function") {
-			value = value(get(color, prop));
-		}
-		if (prop === "alpha") {
-			color.alpha = value;
-		}
-		else {
-			let { space, index } = ColorSpace.resolveCoord(prop, color.space);
-			let coords = getAll(color, space);
-			coords[index] = value;
-			setAll(color, space, coords);
-		}
-	}
-	return color;
-}
-set.returns = "color";
-
-var XYZ_D50 = new ColorSpace({
-	id: "xyz-d50",
-	name: "XYZ D50",
-	white: "D50",
-	base: xyz_d65,
-	fromBase: coords => adapt$1(xyz_d65.white, "D50", coords),
-	toBase: coords => adapt$1("D50", xyz_d65.white, coords),
-});
-
-const ε$2 = 216 / 24389;
-const ε3 = 24 / 116;
-const κ$1 = 24389 / 27;
-let white$2 = WHITES.D50;
-var lab = new ColorSpace({
-	id: "lab",
-	name: "Lab",
-	coords: {
-		l: {
-			refRange: [0, 100],
-			name: "Lightness",
-		},
-		a: {
-			refRange: [-125, 125],
-		},
-		b: {
-			refRange: [-125, 125],
-		},
-	},
-	white: white$2,
-	base: XYZ_D50,
-	fromBase (XYZ) {
-		let xyz = XYZ.map((value, i) => value / white$2[i]);
-		let f = xyz.map(value => (value > ε$2 ? Math.cbrt(value) : (κ$1 * value + 16) / 116));
-		let L = 116 * f[1] - 16;
-		let a = 500 * (f[0] - f[1]);
-		let b = 200 * (f[1] - f[2]);
-		return [L, a, b];
-	},
-	toBase (Lab) {
-		let [L, a, b] = Lab;
-		let f = [];
-		f[1] = (L + 16) / 116;
-		f[0] = a / 500 + f[1];
-		f[2] = f[1] - b / 200;
-		let xyz = [
-			f[0]   > ε3 ? Math.pow(f[0], 3)                : (116 * f[0] - 16) / κ$1,
-			Lab[0] > 8  ? Math.pow((Lab[0] + 16) / 116, 3) : Lab[0] / κ$1,
-			f[2]   > ε3 ? Math.pow(f[2], 3)                : (116 * f[2] - 16) / κ$1,
-		];
-		return xyz.map((value, i) => value * white$2[i]);
-	},
-	formats: {
-		lab: {
-			coords: [
-				"<percentage> | <number>",
-				"<number> | <percentage>",
-				"<number> | <percentage>",
-			],
-		},
-	},
-});
-
-function constrain (angle) {
-	if (typeof angle !== "number") {
-		return angle;
-	}
-	return ((angle % 360) + 360) % 360;
-}
-
-var lch = new ColorSpace({
-	id: "lch",
-	name: "LCH",
-	coords: {
-		l: {
-			refRange: [0, 100],
-			name: "Lightness",
-		},
-		c: {
-			refRange: [0, 150],
-			name: "Chroma",
-		},
-		h: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-	},
-	base: lab,
-	fromBase (Lab) {
-		if (this.ε === undefined) {
-			let range = Object.values(this.base.coords)[1].refRange;
-			let extent = range[1] - range[0];
-			this.ε = extent / 100000;
-		}
-		let [L, a, b] = Lab;
-		let isAchromatic = Math.abs(a) < this.ε && Math.abs(b) < this.ε;
-		let h = isAchromatic ? null : constrain((Math.atan2(b, a) * 180) / Math.PI);
-		let C = isAchromatic ? 0 : Math.sqrt(a ** 2 + b ** 2);
-		return [L, C, h];
-	},
-	toBase (lch) {
-		let [L, C, h] = lch;
-		let a = null,
-			b = null;
-		if (!isNone(h)) {
-			C = C < 0 ? 0 : C;
-			a = C * Math.cos((h * Math.PI) / 180);
-			b = C * Math.sin((h * Math.PI) / 180);
-		}
-		return [L, a, b];
-	},
-	formats: {
-		lch: {
-			coords: ["<percentage> | <number>", "<number> | <percentage>", "<number> | <angle>"],
-		},
-	},
-});
-
-const Gfactor = 25 ** 7;
-const π$1 = Math.PI;
-const r2d = 180 / π$1;
-const d2r$1 = π$1 / 180;
-function pow7 (x) {
-	const x2 = x * x;
-	const x7 = x2 * x2 * x2 * x;
-	return x7;
-}
-function deltaE2000 (color, sample, { kL = 1, kC = 1, kH = 1 } = {}) {
-	[color, sample] = getColor([color, sample]);
-	let [L1, a1, b1] = lab.from(color);
-	let C1 = lch.from(lab, [L1, a1, b1])[1];
-	let [L2, a2, b2] = lab.from(sample);
-	let C2 = lch.from(lab, [L2, a2, b2])[1];
-	if (C1 < 0) {
-		C1 = 0;
-	}
-	if (C2 < 0) {
-		C2 = 0;
-	}
-	let Cbar = (C1 + C2) / 2;
-	let C7 = pow7(Cbar);
-	let G = 0.5 * (1 - Math.sqrt(C7 / (C7 + Gfactor)));
-	let adash1 = (1 + G) * a1;
-	let adash2 = (1 + G) * a2;
-	let Cdash1 = Math.sqrt(adash1 ** 2 + b1 ** 2);
-	let Cdash2 = Math.sqrt(adash2 ** 2 + b2 ** 2);
-	let h1 = adash1 === 0 && b1 === 0 ? 0 : Math.atan2(b1, adash1);
-	let h2 = adash2 === 0 && b2 === 0 ? 0 : Math.atan2(b2, adash2);
-	if (h1 < 0) {
-		h1 += 2 * π$1;
-	}
-	if (h2 < 0) {
-		h2 += 2 * π$1;
-	}
-	h1 *= r2d;
-	h2 *= r2d;
-	let ΔL = L2 - L1;
-	let ΔC = Cdash2 - Cdash1;
-	let hdiff = h2 - h1;
-	let hsum = h1 + h2;
-	let habs = Math.abs(hdiff);
-	let Δh;
-	if (Cdash1 * Cdash2 === 0) {
-		Δh = 0;
-	}
-	else if (habs <= 180) {
-		Δh = hdiff;
-	}
-	else if (hdiff > 180) {
-		Δh = hdiff - 360;
-	}
-	else if (hdiff < -180) {
-		Δh = hdiff + 360;
-	}
-	else {
-		defaults.warn("the unthinkable has happened");
-	}
-	let ΔH = 2 * Math.sqrt(Cdash2 * Cdash1) * Math.sin((Δh * d2r$1) / 2);
-	let Ldash = (L1 + L2) / 2;
-	let Cdash = (Cdash1 + Cdash2) / 2;
-	let Cdash7 = pow7(Cdash);
-	let hdash;
-	if (Cdash1 * Cdash2 === 0) {
-		hdash = hsum;
-	}
-	else if (habs <= 180) {
-		hdash = hsum / 2;
-	}
-	else if (hsum < 360) {
-		hdash = (hsum + 360) / 2;
-	}
-	else {
-		hdash = (hsum - 360) / 2;
-	}
-	let lsq = (Ldash - 50) ** 2;
-	let SL = 1 + (0.015 * lsq) / Math.sqrt(20 + lsq);
-	let SC = 1 + 0.045 * Cdash;
-	let T = 1;
-	T -= 0.17 * Math.cos((hdash - 30) * d2r$1);
-	T += 0.24 * Math.cos(2 * hdash * d2r$1);
-	T += 0.32 * Math.cos((3 * hdash + 6) * d2r$1);
-	T -= 0.2 * Math.cos((4 * hdash - 63) * d2r$1);
-	let SH = 1 + 0.015 * Cdash * T;
-	let Δθ = 30 * Math.exp(-1 * ((hdash - 275) / 25) ** 2);
-	let RC = 2 * Math.sqrt(Cdash7 / (Cdash7 + Gfactor));
-	let RT = -1 * Math.sin(2 * Δθ * d2r$1) * RC;
-	let dE = (ΔL / (kL * SL)) ** 2;
-	dE += (ΔC / (kC * SC)) ** 2;
-	dE += (ΔH / (kH * SH)) ** 2;
-	dE += RT * (ΔC / (kC * SC)) * (ΔH / (kH * SH));
-	return Math.sqrt(dE);
-}
-
-const XYZtoLMS_M$1 = [
-	[ 0.8190224379967030, 0.3619062600528904, -0.1288737815209879 ],
-	[ 0.0329836539323885, 0.9292868615863434,  0.0361446663506424 ],
-	[ 0.0481771893596242, 0.2642395317527308,  0.6335478284694309 ],
-];
-const LMStoXYZ_M$1 = [
-	[  1.2268798758459243, -0.5578149944602171,  0.2813910456659647 ],
-	[ -0.0405757452148008,  1.1122868032803170, -0.0717110580655164 ],
-	[ -0.0763729366746601, -0.4214933324022432,  1.5869240198367816 ],
-];
-const LMStoLab_M = [
-	[ 0.2104542683093140,  0.7936177747023054, -0.0040720430116193 ],
-	[ 1.9779985324311684, -2.4285922420485799,  0.4505937096174110 ],
-	[ 0.0259040424655478,  0.7827717124575296, -0.8086757549230774 ],
-];
-const LabtoLMS_M = [
-	[ 1.0000000000000000,  0.3963377773761749,  0.2158037573099136 ],
-	[ 1.0000000000000000, -0.1055613458156586, -0.0638541728258133 ],
-	[ 1.0000000000000000, -0.0894841775298119, -1.2914855480194092 ],
-];
-var Oklab = new ColorSpace({
-	id: "oklab",
-	name: "Oklab",
-	coords: {
-		l: {
-			refRange: [0, 1],
-			name: "Lightness",
-		},
-		a: {
-			refRange: [-0.4, 0.4],
-		},
-		b: {
-			refRange: [-0.4, 0.4],
-		},
-	},
-	white: "D65",
-	base: xyz_d65,
-	fromBase (XYZ) {
-		let LMS = multiply_v3_m3x3(XYZ, XYZtoLMS_M$1);
-		LMS[0] = Math.cbrt(LMS[0]);
-		LMS[1] = Math.cbrt(LMS[1]);
-		LMS[2] = Math.cbrt(LMS[2]);
-		return multiply_v3_m3x3(LMS, LMStoLab_M, LMS);
-	},
-	toBase (OKLab) {
-		let LMSg = multiply_v3_m3x3(OKLab, LabtoLMS_M);
-		LMSg[0] = LMSg[0] ** 3;
-		LMSg[1] = LMSg[1] ** 3;
-		LMSg[2] = LMSg[2] ** 3;
-		return multiply_v3_m3x3(LMSg, LMStoXYZ_M$1, LMSg);
-	},
-	formats: {
-		oklab: {
-			coords: [
-				"<percentage> | <number>",
-				"<number> | <percentage>",
-				"<number> | <percentage>",
-			],
-		},
-	},
-});
-
-function deltaEOK (color, sample) {
-	[color, sample] = getColor([color, sample]);
-	let [L1, a1, b1] = Oklab.from(color);
-	let [L2, a2, b2] = Oklab.from(sample);
-	let ΔL = L1 - L2;
-	let Δa = a1 - a2;
-	let Δb = b1 - b2;
-	return Math.sqrt(ΔL ** 2 + Δa ** 2 + Δb ** 2);
-}
-
-const ε$1 = 0.000075;
-function inGamut (color, space, { epsilon = ε$1 } = {}) {
-	color = getColor(color);
-	if (!space) {
-		space = color.space;
-	}
-	space = ColorSpace.get(space);
-	let coords = color.coords;
-	if (space !== color.space) {
-		coords = space.from(color);
-	}
-	return space.inGamut(coords, { epsilon });
-}
-
-function clone (color) {
-	return {
-		space: color.space,
-		coords:  (color.coords.slice()),
-		alpha: color.alpha,
-	};
-}
-
-function distance (color1, color2, space = "lab") {
-	space = ColorSpace.get(space);
-	let coords1 = space.from(color1);
-	let coords2 = space.from(color2);
-	return Math.sqrt(
-		coords1.reduce((acc, c1, i) => {
-			let c2 = coords2[i];
-			if (isNone(c1) || isNone(c2)) {
-				return acc;
-			}
-			return acc + (c2 - c1) ** 2;
-		}, 0),
-	);
-}
-
-function deltaE76 (color, sample) {
-	return distance(color, sample, "lab");
-}
-
-const π = Math.PI;
-const d2r = π / 180;
-function deltaECMC (color, sample, { l = 2, c = 1 } = {}) {
-	[color, sample] = getColor([color, sample]);
-	let [L1, a1, b1] = lab.from(color);
-	let [, C1, H1] = lch.from(lab, [L1, a1, b1]);
-	let [L2, a2, b2] = lab.from(sample);
-	let C2 = lch.from(lab, [L2, a2, b2])[1];
-	if (C1 < 0) {
-		C1 = 0;
-	}
-	if (C2 < 0) {
-		C2 = 0;
-	}
-	let ΔL = L1 - L2;
-	let ΔC = C1 - C2;
-	let Δa = a1 - a2;
-	let Δb = b1 - b2;
-	let H2 = Δa ** 2 + Δb ** 2 - ΔC ** 2;
-	let SL = 0.511;
-	if (L1 >= 16) {
-		SL = (0.040975 * L1) / (1 + 0.01765 * L1);
-	}
-	let SC = (0.0638 * C1) / (1 + 0.0131 * C1) + 0.638;
-	let T;
-	if (isNone(H1)) {
-		H1 = 0;
-	}
-	if (H1 >= 164 && H1 <= 345) {
-		T = 0.56 + Math.abs(0.2 * Math.cos((H1 + 168) * d2r));
-	}
-	else {
-		T = 0.36 + Math.abs(0.4 * Math.cos((H1 + 35) * d2r));
-	}
-	let C4 = Math.pow(C1, 4);
-	let F = Math.sqrt(C4 / (C4 + 1900));
-	let SH = SC * (F * T + 1 - F);
-	let dE = (ΔL / (l * SL)) ** 2;
-	dE += (ΔC / (c * SC)) ** 2;
-	dE += H2 / SH ** 2;
-	return Math.sqrt(dE);
-}
-
-const Yw = 203;
-var XYZ_Abs_D65 = new ColorSpace({
-	id: "xyz-abs-d65",
-	cssId: "--xyz-abs-d65",
-	name: "Absolute XYZ D65",
-	coords: {
-		x: {
-			refRange: [0, 9504.7],
-			name: "Xa",
-		},
-		y: {
-			refRange: [0, 10000],
-			name: "Ya",
-		},
-		z: {
-			refRange: [0, 10888.3],
-			name: "Za",
-		},
-	},
-	base: xyz_d65,
-	fromBase (XYZ) {
-		return XYZ.map(v => v * Yw);
-	},
-	toBase (AbsXYZ) {
-		return AbsXYZ.map(v => v / Yw);
-	},
-});
-
-const b$1 = 1.15;
-const g$1 = 0.66;
-const n$1 = 2610 / 2 ** 14;
-const ninv = 2 ** 14 / 2610;
-const c1$1 = 3424 / 2 ** 12;
-const c2$1 = 2413 / 2 ** 7;
-const c3$1 = 2392 / 2 ** 7;
-const p$1 = (1.7 * 2523) / 2 ** 5;
-const pinv = 2 ** 5 / (1.7 * 2523);
-const d$1 = -0.56;
-const d0 = 1.6295499532821566e-11;
-const XYZtoCone_M = [
-	[  0.41478972, 0.579999,  0.0146480 ],
-	[ -0.2015100,  1.120649,  0.0531008 ],
-	[ -0.0166008,  0.264800,  0.6684799 ],
-];
-const ConetoXYZ_M = [
-	[  1.9242264357876067,  -1.0047923125953657,  0.037651404030618   ],
-	[  0.35031676209499907,  0.7264811939316552, -0.06538442294808501 ],
-	[ -0.09098281098284752, -0.3127282905230739,  1.5227665613052603  ],
-];
-const ConetoIab_M = [
-	[  0.5,       0.5,       0        ],
-	[  3.524000, -4.066708,  0.542708 ],
-	[  0.199076,  1.096799, -1.295875 ],
-];
-const IabtoCone_M = [
-	[ 1,                   0.13860504327153927,   0.05804731615611883 ],
-	[ 1,                  -0.1386050432715393,   -0.058047316156118904 ],
-	[ 1,                  -0.09601924202631895,  -0.81189189605603900  ],
-];
-var Jzazbz = new ColorSpace({
-	id: "jzazbz",
-	name: "Jzazbz",
-	coords: {
-		jz: {
-			refRange: [0, 1],
-			name: "Jz",
-		},
-		az: {
-			refRange: [-0.21, 0.21],
-		},
-		bz: {
-			refRange: [-0.21, 0.21],
-		},
-	},
-	base: XYZ_Abs_D65,
-	fromBase (XYZ) {
-		let [Xa, Ya, Za] = XYZ;
-		let Xm = b$1 * Xa - (b$1 - 1) * Za;
-		let Ym = g$1 * Ya - (g$1 - 1) * Xa;
-		let LMS = multiply_v3_m3x3([Xm, Ym, Za], XYZtoCone_M);
-		let PQLMS =  (
-			LMS.map(function (val) {
-				let num = c1$1 + c2$1 * spow(val / 10000, n$1);
-				let denom = 1 + c3$1 * spow(val / 10000, n$1);
-				return spow(num / denom, p$1);
-			})
-		);
-		let [Iz, az, bz] = multiply_v3_m3x3(PQLMS, ConetoIab_M);
-		let Jz = ((1 + d$1) * Iz) / (1 + d$1 * Iz) - d0;
-		return [Jz, az, bz];
-	},
-	toBase (Jzazbz) {
-		let [Jz, az, bz] = Jzazbz;
-		let Iz = (Jz + d0) / (1 + d$1 - d$1 * (Jz + d0));
-		let PQLMS = multiply_v3_m3x3([Iz, az, bz], IabtoCone_M);
-		let LMS =  (
-			PQLMS.map(function (val) {
-				let num = c1$1 - spow(val, pinv);
-				let denom = c3$1 * spow(val, pinv) - c2$1;
-				let x = 10000 * spow(num / denom, ninv);
-				return x;
-			})
-		);
-		let [Xm, Ym, Za] = multiply_v3_m3x3(LMS, ConetoXYZ_M);
-		let Xa = (Xm + (b$1 - 1) * Za) / b$1;
-		let Ya = (Ym + (g$1 - 1) * Xa) / g$1;
-		return [Xa, Ya, Za];
-	},
-	formats: {
-		jzazbz: {
-			coords: [
-				"<percentage> | <number>",
-				"<number> | <percentage>",
-				"<number> | <percentage>",
-			],
-		},
-	},
-});
-
-var jzczhz = new ColorSpace({
-	id: "jzczhz",
-	name: "JzCzHz",
-	coords: {
-		jz: {
-			refRange: [0, 1],
-			name: "Jz",
-		},
-		cz: {
-			refRange: [0, 0.26],
-			name: "Chroma",
-		},
-		hz: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-	},
-	base: Jzazbz,
-	fromBase: lch.fromBase,
-	toBase: lch.toBase,
-	formats: {
-		jzczhz: {
-			coords: ["<percentage> | <number>", "<number> | <percentage>", "<number> | <angle>"],
-		},
-	},
-});
-
-function deltaEJz (color, sample) {
-	[color, sample] = getColor([color, sample]);
-	let [Jz1, Cz1, Hz1] = jzczhz.from(color);
-	let [Jz2, Cz2, Hz2] = jzczhz.from(sample);
-	let ΔJ = Jz1 - Jz2;
-	let ΔC = Cz1 - Cz2;
-	if (isNone(Hz1) && isNone(Hz2)) {
-		Hz1 = 0;
-		Hz2 = 0;
-	}
-	else if (isNone(Hz1)) {
-		Hz1 = Hz2;
-	}
-	else if (isNone(Hz2)) {
-		Hz2 = Hz1;
-	}
-	let Δh = Hz1 - Hz2;
-	let ΔH = 2 * Math.sqrt(Cz1 * Cz2) * Math.sin((Δh / 2) * (Math.PI / 180));
-	return Math.sqrt(ΔJ ** 2 + ΔC ** 2 + ΔH ** 2);
-}
-
-const c1 = 3424 / 4096;
-const c2 = 2413 / 128;
-const c3 = 2392 / 128;
-const m1$1 = 2610 / 16384;
-const m2 = 2523 / 32;
-const im1 = 16384 / 2610;
-const im2 = 32 / 2523;
-const XYZtoLMS_M = [
-	[  0.3592832590121217,  0.6976051147779502, -0.0358915932320290 ],
-	[ -0.1920808463704993,  1.1004767970374321,  0.0753748658519118 ],
-	[  0.0070797844607479,  0.0748396662186362,  0.8433265453898765 ],
-];
-const LMStoIPT_M = [
-	[  2048 / 4096,   2048 / 4096,       0      ],
-	[  6610 / 4096, -13613 / 4096,  7003 / 4096 ],
-	[ 17933 / 4096, -17390 / 4096,  -543 / 4096 ],
-];
-const IPTtoLMS_M = [
-	[ 0.9999999999999998,  0.0086090370379328,  0.1110296250030260 ],
-	[ 0.9999999999999998, -0.0086090370379328, -0.1110296250030259 ],
-	[ 0.9999999999999998,  0.5600313357106791, -0.3206271749873188 ],
-];
-const LMStoXYZ_M = [
-	[  2.0701522183894223, -1.3263473389671563,  0.2066510476294053 ],
-	[  0.3647385209748072,  0.6805660249472273, -0.0453045459220347 ],
-	[ -0.0497472075358123, -0.0492609666966131,  1.1880659249923042 ],
-];
-var ictcp = new ColorSpace({
-	id: "ictcp",
-	name: "ICTCP",
-	coords: {
-		i: {
-			refRange: [0, 1],
-			name: "I",
-		},
-		ct: {
-			refRange: [-0.5, 0.5],
-			name: "CT",
-		},
-		cp: {
-			refRange: [-0.5, 0.5],
-			name: "CP",
-		},
-	},
-	base: XYZ_Abs_D65,
-	fromBase (XYZ) {
-		let LMS = multiply_v3_m3x3(XYZ, XYZtoLMS_M);
-		return LMStoICtCp(LMS);
-	},
-	toBase (ICtCp) {
-		let LMS = ICtCptoLMS(ICtCp);
-		return multiply_v3_m3x3(LMS, LMStoXYZ_M);
-	},
-	formats: {
-		ictcp: {
-			coords: [
-				"<percentage> | <number>",
-				"<number> | <percentage>",
-				"<number> | <percentage>",
-			],
-		},
-	},
-});
-function LMStoICtCp (LMS) {
-	let PQLMS =  (
-		LMS.map(function (val) {
-			let num = c1 + c2 * (val / 10000) ** m1$1;
-			let denom = 1 + c3 * (val / 10000) ** m1$1;
-			return (num / denom) ** m2;
-		})
-	);
-	return multiply_v3_m3x3(PQLMS, LMStoIPT_M);
-}
-function ICtCptoLMS (ICtCp) {
-	let PQLMS = multiply_v3_m3x3(ICtCp, IPTtoLMS_M);
-	let LMS =  (
-		PQLMS.map(function (val) {
-			let num = Math.max(val ** im2 - c1, 0);
-			let denom = c2 - c3 * val ** im2;
-			return 10000 * (num / denom) ** im1;
-		})
-	);
-	return LMS;
-}
-
-function deltaEITP (color, sample) {
-	[color, sample] = getColor([color, sample]);
-	let [I1, T1, P1] = ictcp.from(color);
-	let [I2, T2, P2] = ictcp.from(sample);
-	return 720 * Math.sqrt((I1 - I2) ** 2 + 0.25 * (T1 - T2) ** 2 + (P1 - P2) ** 2);
-}
-
-function deltaEOK2 (color, sample) {
-	[color, sample] = getColor([color, sample]);
-	let abscale = 2;
-	let [L1, a1, b1] = Oklab.from(color);
-	let [L2, a2, b2] = Oklab.from(sample);
-	let ΔL = L1 - L2;
-	let Δa = abscale * (a1 - a2);
-	let Δb = abscale * (b1 - b2);
-	return Math.sqrt(ΔL ** 2 + Δa ** 2 + Δb ** 2);
-}
-
-const white$1 = WHITES.D65;
-const adaptedCoef = 0.42;
-const adaptedCoefInv = 1 / adaptedCoef;
-const tau = 2 * Math.PI;
-const cat16 = [
-	[  0.401288,  0.650173, -0.051461 ],
-	[ -0.250268,  1.204414,  0.045854 ],
-	[ -0.002079,  0.048952,  0.953127 ],
-];
-const cat16Inv = [
-	[1.8620678550872327, -1.0112546305316843, 0.14918677544445175],
-	[0.38752654323613717, 0.6214474419314753, -0.008973985167612518],
-	[-0.015841498849333856, -0.03412293802851557, 1.0499644368778496],
-];
-const m1 = [
-	[460.0, 451.0, 288.0],
-	[460.0, -891.0, -261.0],
-	[460.0, -220.0, -6300.0],
-];
-const surroundMap = {
-	dark: [0.8, 0.525, 0.8],
-	dim: [0.9, 0.59, 0.9],
-	average: [1, 0.69, 1],
-};
-const hueQuadMap = {
-	h: [20.14, 90.0, 164.25, 237.53, 380.14],
-	e: [0.8, 0.7, 1.0, 1.2, 0.8],
-	H: [0.0, 100.0, 200.0, 300.0, 400.0],
-};
-const rad2deg = 180 / Math.PI;
-const deg2rad$1 = Math.PI / 180;
-function adapt (coords, fl) {
-	const temp =  (
-		coords.map(c => {
-			const x = spow(fl * Math.abs(c) * 0.01, adaptedCoef);
-			return (400 * copySign(x, c)) / (x + 27.13);
-		})
-	);
-	return temp;
-}
-function unadapt (adapted, fl) {
-	const constant = (100 / fl) * 27.13 ** adaptedCoefInv;
-	return  (
-		adapted.map(c => {
-			const cabs = Math.abs(c);
-			return copySign(constant * spow(cabs / (400 - cabs), adaptedCoefInv), c);
-		})
-	);
-}
-function hueQuadrature (h) {
-	let hp = constrain(h);
-	if (hp <= hueQuadMap.h[0]) {
-		hp += 360;
-	}
-	const i = bisectLeft(hueQuadMap.h, hp) - 1;
-	const [hi, hii] = hueQuadMap.h.slice(i, i + 2);
-	const [ei, eii] = hueQuadMap.e.slice(i, i + 2);
-	const Hi = hueQuadMap.H[i];
-	const t = (hp - hi) / ei;
-	return Hi + (100 * t) / (t + (hii - hp) / eii);
-}
-function invHueQuadrature (H) {
-	let Hp = ((H % 400) + 400) % 400;
-	const i = Math.floor(0.01 * Hp);
-	Hp = Hp % 100;
-	const [hi, hii] = hueQuadMap.h.slice(i, i + 2);
-	const [ei, eii] = hueQuadMap.e.slice(i, i + 2);
-	return constrain((Hp * (eii * hi - ei * hii) - 100 * hi * eii) / (Hp * (eii - ei) - 100 * eii));
-}
-function environment (
-	refWhite,
-	adaptingLuminance,
-	backgroundLuminance,
-	surround,
-	discounting,
-) {
-	const env = {};
-	env.discounting = discounting;
-	env.refWhite = refWhite;
-	env.surround = surround;
-	const xyzW =  (
-		refWhite.map(c => {
-			return c * 100;
-		})
-	);
-	env.la = adaptingLuminance;
-	env.yb = backgroundLuminance;
-	const yw = xyzW[1];
-	const rgbW = multiply_v3_m3x3(xyzW, cat16);
-	let values = surroundMap[env.surround];
-	const f = values[0];
-	env.c = values[1];
-	env.nc = values[2];
-	const k = 1 / (5 * env.la + 1);
-	const k4 = k ** 4;
-	env.fl = k4 * env.la + 0.1 * (1 - k4) * (1 - k4) * Math.cbrt(5 * env.la);
-	env.flRoot = env.fl ** 0.25;
-	env.n = env.yb / yw;
-	env.z = 1.48 + Math.sqrt(env.n);
-	env.nbb = 0.725 * env.n ** -0.2;
-	env.ncb = env.nbb;
-	const d = discounting
-		? 1
-		: Math.max(Math.min(f * (1 - (1 / 3.6) * Math.exp((-env.la - 42) / 92)), 1), 0);
-	env.dRgb =  (
-		rgbW.map(c => {
-			return interpolate(1, yw / c, d);
-		})
-	);
-	env.dRgbInv =  (
-		env.dRgb.map(c => {
-			return 1 / c;
-		})
-	);
-	const rgbCW =  (
-		rgbW.map((c, i) => {
-			return c * env.dRgb[i];
-		})
-	);
-	const rgbAW = adapt(rgbCW, env.fl);
-	env.aW = env.nbb * (2 * rgbAW[0] + rgbAW[1] + 0.05 * rgbAW[2]);
-	return env;
-}
-const viewingConditions$1 = environment(white$1, (64 / Math.PI) * 0.2, 20, "average", false);
-function fromCam16 (cam16, env) {
-	if (!((cam16.J !== undefined) ^ (cam16.Q !== undefined))) {
-		throw new Error("Conversion requires one and only one: 'J' or 'Q'");
-	}
-	if (!((cam16.C !== undefined) ^ (cam16.M !== undefined) ^ (cam16.s !== undefined))) {
-		throw new Error("Conversion requires one and only one: 'C', 'M' or 's'");
-	}
-	if (!((cam16.h !== undefined) ^ (cam16.H !== undefined))) {
-		throw new Error("Conversion requires one and only one: 'h' or 'H'");
-	}
-	if (cam16.J === 0.0 || cam16.Q === 0.0) {
-		return [0.0, 0.0, 0.0];
-	}
-	let hRad = 0.0;
-	if (cam16.h !== undefined) {
-		hRad = constrain(cam16.h) * deg2rad$1;
-	}
-	else {
-		hRad = invHueQuadrature(cam16.H) * deg2rad$1;
-	}
-	const cosh = Math.cos(hRad);
-	const sinh = Math.sin(hRad);
-	let Jroot = 0.0;
-	if (cam16.J !== undefined) {
-		Jroot = spow(cam16.J, 1 / 2) * 0.1;
-	}
-	else if (cam16.Q !== undefined) {
-		Jroot = (0.25 * env.c * cam16.Q) / ((env.aW + 4) * env.flRoot);
-	}
-	let alpha = 0.0;
-	if (cam16.C !== undefined) {
-		alpha = cam16.C / Jroot;
-	}
-	else if (cam16.M !== undefined) {
-		alpha = cam16.M / env.flRoot / Jroot;
-	}
-	else if (cam16.s !== undefined) {
-		alpha = (0.0004 * cam16.s ** 2 * (env.aW + 4)) / env.c;
-	}
-	const t = spow(alpha * Math.pow(1.64 - Math.pow(0.29, env.n), -0.73), 10 / 9);
-	const et = 0.25 * (Math.cos(hRad + 2) + 3.8);
-	const A = env.aW * spow(Jroot, 2 / env.c / env.z);
-	const p1 = (5e4 / 13) * env.nc * env.ncb * et;
-	const p2 = A / env.nbb;
-	const r = 23 * (p2 + 0.305) * zdiv(t, 23 * p1 + t * (11 * cosh + 108 * sinh));
-	const a = r * cosh;
-	const b = r * sinh;
-	const rgb_c = unadapt(
-		(
-			multiply_v3_m3x3([p2, a, b], m1).map(c => {
-				return (c * 1) / 1403;
-			})
-		),
-		env.fl,
-	);
-	return  (
-		multiply_v3_m3x3(
-			 (
-				rgb_c.map((c, i) => {
-					return c * env.dRgbInv[i];
-				})
-			),
-			cat16Inv,
-		).map(c => {
-			return c / 100;
-		})
-	);
-}
-function toCam16 (xyzd65, env) {
-	const xyz100 =  (
-		xyzd65.map(c => {
-			return c * 100;
-		})
-	);
-	const rgbA = adapt(
-		(
-			multiply_v3_m3x3(xyz100, cat16).map((c, i) => {
-				return c * env.dRgb[i];
-			})
-		),
-		env.fl,
-	);
-	const a = rgbA[0] + (-12 * rgbA[1] + rgbA[2]) / 11;
-	const b = (rgbA[0] + rgbA[1] - 2 * rgbA[2]) / 9;
-	const hRad = ((Math.atan2(b, a) % tau) + tau) % tau;
-	const et = 0.25 * (Math.cos(hRad + 2) + 3.8);
-	const t =
-		(5e4 / 13) *
-		env.nc *
-		env.ncb *
-		zdiv(et * Math.sqrt(a ** 2 + b ** 2), rgbA[0] + rgbA[1] + 1.05 * rgbA[2] + 0.305);
-	const alpha = spow(t, 0.9) * Math.pow(1.64 - Math.pow(0.29, env.n), 0.73);
-	const A = env.nbb * (2 * rgbA[0] + rgbA[1] + 0.05 * rgbA[2]);
-	const Jroot = spow(A / env.aW, 0.5 * env.c * env.z);
-	const J = 100 * spow(Jroot, 2);
-	const Q = (4 / env.c) * Jroot * (env.aW + 4) * env.flRoot;
-	const C = alpha * Jroot;
-	const M = C * env.flRoot;
-	const h = constrain(hRad * rad2deg);
-	const H = hueQuadrature(h);
-	const s = 50 * spow((env.c * alpha) / (env.aW + 4), 1 / 2);
-	return { J: J, C: C, h: h, s: s, Q: Q, M: M, H: H };
-}
-new ColorSpace({
-	id: "cam16-jmh",
-	cssId: "--cam16-jmh",
-	name: "CAM16-JMh",
-	coords: {
-		j: {
-			refRange: [0, 100],
-			name: "J",
-		},
-		m: {
-			refRange: [0, 105.0],
-			name: "Colorfulness",
-		},
-		h: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-	},
-	base: xyz_d65,
-	fromBase (xyz) {
-		if (this.ε === undefined) {
-			this.ε = Object.values(this.coords)[1].refRange[1] / 100000;
-		}
-		const cam16 = toCam16(xyz, viewingConditions$1);
-		const isAchromatic = Math.abs(cam16.M) < this.ε;
-		return [cam16.J, isAchromatic ? 0 : cam16.M, isAchromatic ? null : cam16.h];
-	},
-	toBase (cam16) {
-		return fromCam16({ J: cam16[0], M: cam16[1], h: cam16[2] }, viewingConditions$1);
-	},
-});
-
-const white = WHITES.D65;
-const ε = 216 / 24389;
-const κ = 24389 / 27;
-function toLstar (y) {
-	const fy = y > ε ? Math.cbrt(y) : (κ * y + 16) / 116;
-	return 116.0 * fy - 16.0;
-}
-function fromLstar (lstar) {
-	return lstar > 8 ? Math.pow((lstar + 16) / 116, 3) : lstar / κ;
-}
-function fromHct (coords, env) {
-	let [h, c, t] = coords;
-	let xyz = [];
-	let j = 0;
-	if (t === 0) {
-		return [0.0, 0.0, 0.0];
-	}
-	let y = fromLstar(t);
-	if (t > 0) {
-		j = 0.00379058511492914 * t ** 2 + 0.608983189401032 * t + 0.9155088574762233;
-	}
-	else {
-		j = 9.514440756550361e-6 * t ** 2 + 0.08693057439788597 * t - 21.928975842194614;
-	}
-	const threshold = 2e-12;
-	const max_attempts = 15;
-	let attempt = 0;
-	let last = Infinity;
-	while (attempt <= max_attempts) {
-		xyz = fromCam16({ J: j, C: c, h: h }, env);
-		const delta = Math.abs(xyz[1] - y);
-		if (delta < last) {
-			if (delta <= threshold) {
-				return xyz;
-			}
-			last = delta;
-		}
-		j = j - ((xyz[1] - y) * j) / (2 * xyz[1]);
-		attempt += 1;
-	}
-	return fromCam16({ J: j, C: c, h: h }, env);
-}
-function toHct (xyz, env) {
-	const t = toLstar(xyz[1]);
-	if (t === 0.0) {
-		return [0.0, 0.0, 0.0];
-	}
-	const cam16 = toCam16(xyz, viewingConditions);
-	return [constrain(cam16.h), cam16.C, t];
-}
-const viewingConditions = environment(
-	white,
-	(200 / Math.PI) * fromLstar(50.0),
-	fromLstar(50.0) * 100,
-	"average",
-	false,
-);
-var hct = new ColorSpace({
-	id: "hct",
-	name: "HCT",
-	coords: {
-		h: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-		c: {
-			refRange: [0, 145],
-			name: "Colorfulness",
-		},
-		t: {
-			refRange: [0, 100],
-			name: "Tone",
-		},
-	},
-	base: xyz_d65,
-	fromBase (xyz) {
-		if (this.ε === undefined) {
-			this.ε = Object.values(this.coords)[1].refRange[1] / 100000;
-		}
-		let hct = toHct(xyz, viewingConditions);
-		if (hct[1] < this.ε) {
-			hct[1] = 0.0;
-			hct[0] = null;
-		}
-		return hct;
-	},
-	toBase (hct) {
-		return fromHct(hct, viewingConditions);
-	},
-	formats: {
-		color: {
-			id: "--hct",
-			coords: ["<number> | <angle>", "<percentage> | <number>", "<percentage> | <number>"],
-		},
-	},
-});
-
-const deg2rad = Math.PI / 180;
-const ucsCoeff = [1.0, 0.007, 0.0228];
-function convertUcsAb (coords) {
-	if (coords[1] < 0) {
-		coords = hct.fromBase(hct.toBase(coords));
-	}
-	const M =
-		Math.log(Math.max(1 + ucsCoeff[2] * coords[1] * viewingConditions.flRoot, 1.0)) /
-		ucsCoeff[2];
-	const hrad = coords[0] * deg2rad;
-	const a = M * Math.cos(hrad);
-	const b = M * Math.sin(hrad);
-	return [coords[2], a, b];
-}
-function deltaEHCT (color, sample) {
-	[color, sample] = getColor([color, sample]);
-	let [t1, a1, b1] = convertUcsAb(hct.from(color));
-	let [t2, a2, b2] = convertUcsAb(hct.from(sample));
-	return Math.sqrt((t1 - t2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2);
-}
-
-var deltaEMethods = {
-	deltaE76,
-	deltaECMC,
-	deltaE2000,
-	deltaEJz,
-	deltaEITP,
-	deltaEOK,
-	deltaEOK2,
-	deltaEHCT,
-};
-
-function calcEpsilon (jnd) {
-	const order = !jnd ? 0 : Math.floor(Math.log10(Math.abs(jnd)));
-	return Math.max(parseFloat(`1e${order - 2}`), 1e-6);
-}
-const GMAPPRESET = {
-	hct: {
-		method: "hct.c",
-		jnd: 2,
-		deltaEMethod: "hct",
-		blackWhiteClamp: {},
-	},
-	"hct-tonal": {
-		method: "hct.c",
-		jnd: 0,
-		deltaEMethod: "hct",
-		blackWhiteClamp: { channel: "hct.t", min: 0, max: 100 },
-	},
-};
-function toGamut (
-	color,
-	{
-		method = defaults.gamut_mapping,
-		space = undefined,
-		deltaEMethod = "",
-		jnd = 2,
-		blackWhiteClamp = undefined,
-	} = {},
-) {
-	color = getColor(color);
-	if (isString(arguments[1])) {
-		space = arguments[1];
-	}
-	else if (!space) {
-		space = color.space;
-	}
-	space = ColorSpace.get(space);
-	if (inGamut(color, space, { epsilon: 0 })) {
-		return  (color);
-	}
-	let spaceColor;
-	if (method === "css") {
-		spaceColor = toGamutCSS(color, { space });
-	}
-	else {
-		if (method !== "clip" && !inGamut(color, space)) {
-			if (Object.prototype.hasOwnProperty.call(GMAPPRESET, method)) {
-				({ method, jnd, deltaEMethod, blackWhiteClamp } = GMAPPRESET[method]);
-			}
-			let de = deltaE2000;
-			if (deltaEMethod !== "") {
-				for (let m in deltaEMethods) {
-					if ("deltae" + deltaEMethod.toLowerCase() === m.toLowerCase()) {
-						de = deltaEMethods[m];
-						break;
-					}
-				}
-			}
-			if (jnd === 0) {
-				jnd = 1e-16;
-			}
-			let clipped = toGamut(to(color, space), { method: "clip", space });
-			if (de(color, clipped) > jnd) {
-				if (blackWhiteClamp && Object.keys(blackWhiteClamp).length === 3) {
-					let channelMeta = ColorSpace.resolveCoord(blackWhiteClamp.channel);
-					let channel = get(to(color, channelMeta.space), channelMeta.id);
-					if (isNone(channel)) {
-						channel = 0;
-					}
-					if (channel >= blackWhiteClamp.max) {
-						return to({ space: "xyz-d65", coords: WHITES["D65"] }, color.space);
-					}
-					else if (channel <= blackWhiteClamp.min) {
-						return to({ space: "xyz-d65", coords: [0, 0, 0] }, color.space);
-					}
-				}
-				let coordMeta = ColorSpace.resolveCoord(method);
-				let mapSpace = coordMeta.space;
-				let coordId = coordMeta.id;
-				let mappedColor = to(color, mapSpace);
-				mappedColor.coords.forEach((c, i) => {
-					if (isNone(c)) {
-						mappedColor.coords[i] = 0;
-					}
-				});
-				let bounds = coordMeta.range || coordMeta.refRange;
-				let min = bounds[0];
-				let ε = calcEpsilon(jnd);
-				let low = min;
-				let high = get(mappedColor, coordId);
-				while (high - low > ε) {
-					let clipped = clone(mappedColor);
-					clipped = toGamut(clipped, { space, method: "clip" });
-					let deltaE = de(mappedColor, clipped);
-					if (deltaE - jnd < ε) {
-						low = get(mappedColor, coordId);
-					}
-					else {
-						high = get(mappedColor, coordId);
-					}
-					set(mappedColor, coordId, (low + high) / 2);
-				}
-				spaceColor = to(mappedColor, space);
-			}
-			else {
-				spaceColor = clipped;
-			}
-		}
-		else {
-			spaceColor = to(color, space);
-		}
-		if (
-			method === "clip" ||
-			!inGamut(spaceColor, space, { epsilon: 0 })
-		) {
-			let bounds = Object.values(space.coords).map(c => c.range || []);
-			spaceColor.coords =  (
-				spaceColor.coords.map((c, i) => {
-					let [min, max] = bounds[i];
-					if (min !== undefined) {
-						c = Math.max(min, c);
-					}
-					if (max !== undefined) {
-						c = Math.min(c, max);
-					}
-					return c;
-				})
-			);
-		}
-	}
-	if (space !== color.space) {
-		spaceColor = to(spaceColor, color.space);
-	}
-	color.coords = spaceColor.coords;
-	return  (color);
-}
-toGamut.returns = "color";
-const COLORS = {
-	WHITE: { space: Oklab, coords: [1, 0, 0], alpha: 1 },
-	BLACK: { space: Oklab, coords: [0, 0, 0], alpha: 1 },
-};
-function toGamutCSS (origin, { space } = {}) {
-	const JND = 0.02;
-	const ε = 0.0001;
-	origin = getColor(origin);
-	if (!space) {
-		space = origin.space;
-	}
-	space = ColorSpace.get(space);
-	const oklchSpace = ColorSpace.get("oklch");
-	if (space.isUnbounded) {
-		return to(origin, space);
-	}
-	const origin_OKLCH = to(origin, oklchSpace);
-	let L = origin_OKLCH.coords[0];
-	if (L >= 1) {
-		const white = to(COLORS.WHITE, space);
-		white.alpha = origin.alpha;
-		return to(white, space);
-	}
-	if (L <= 0) {
-		const black = to(COLORS.BLACK, space);
-		black.alpha = origin.alpha;
-		return to(black, space);
-	}
-	if (inGamut(origin_OKLCH, space, { epsilon: 0 })) {
-		return to(origin_OKLCH, space);
-	}
-	function clip (_color) {
-		const destColor = to(_color, space);
-		const spaceCoords = Object.values( (space).coords);
-		destColor.coords =  (
-			destColor.coords.map((coord, index) => {
-				if ("range" in spaceCoords[index]) {
-					const [min, max] = spaceCoords[index].range;
-					return clamp$1(min, coord, max);
-				}
-				return coord;
-			})
-		);
-		return destColor;
-	}
-	let min = 0;
-	let max = origin_OKLCH.coords[1];
-	let min_inGamut = true;
-	let current = clone(origin_OKLCH);
-	let clipped = clip(current);
-	let E = deltaEOK(clipped, current);
-	if (E < JND) {
-		return clipped;
-	}
-	while (max - min > ε) {
-		const chroma = (min + max) / 2;
-		current.coords[1] = chroma;
-		if (min_inGamut && inGamut(current, space, { epsilon: 0 })) {
-			min = chroma;
-		}
-		else {
-			clipped = clip(current);
-			E = deltaEOK(clipped, current);
-			if (E < JND) {
-				if (JND - E < ε) {
-					break;
-				}
-				else {
-					min_inGamut = false;
-					min = chroma;
-				}
-			}
-			else {
-				max = chroma;
-			}
-		}
-	}
-	return clipped;
-}
-
-function to (color, space, { inGamut } = {}) {
-	color = getColor(color);
-	space = ColorSpace.get(space);
-	let coords = space.from(color);
-	let ret = { space, coords, alpha: color.alpha };
-	if (inGamut) {
-		ret = toGamut(ret, inGamut === true ? undefined : inGamut);
-	}
-	return ret;
-}
-to.returns = "color";
-
-function serialize (color, options = {}) {
-	let {
-		precision = defaults.precision,
-		format,
-		inGamut: inGamut$1 = true,
-		coords: coordFormat,
-		alpha: alphaFormat,
-		commas,
-	} = options;
-	let ret;
-	let colorWithMeta =  (getColor(color));
-	let formatId = format;
-	let parseMeta = colorWithMeta.parseMeta;
-	if (parseMeta && !format) {
-		if (parseMeta.format.canSerialize()) {
-			format = parseMeta.format;
-			formatId = parseMeta.formatId;
-		}
-		coordFormat ??= parseMeta.types;
-		alphaFormat ??= parseMeta.alphaType;
-		commas ??= parseMeta.commas;
-	}
-	if (formatId) {
-		format = colorWithMeta.space.getFormat(format) ?? ColorSpace.findFormat(formatId);
-	}
-	if (!format) {
-		format = colorWithMeta.space.getFormat("default") ?? ColorSpace.DEFAULT_FORMAT;
-		formatId = format.name;
-	}
-	if (format && format.space && format.space !== colorWithMeta.space) {
-		colorWithMeta = to(colorWithMeta, format.space);
-	}
-	let coords = colorWithMeta.coords.slice();
-	inGamut$1 ||= format.toGamut;
-	if (inGamut$1 && !inGamut(colorWithMeta)) {
-		coords = toGamut(clone(colorWithMeta), inGamut$1 === true ? undefined : inGamut$1).coords;
-	}
-	if (format.type === "custom") {
-		if (format.serialize) {
-			ret = format.serialize(coords, colorWithMeta.alpha, options);
-		}
-		else {
-			throw new TypeError(
-				`format ${formatId} can only be used to parse colors, not for serialization`,
-			);
-		}
-	}
-	else {
-		let name = format.name || "color";
-		let args = format.serializeCoords(coords, precision, coordFormat);
-		if (name === "color") {
-			let cssId =
-				format.id || format.ids?.[0] || colorWithMeta.space.cssId || colorWithMeta.space.id;
-			args.unshift(cssId);
-		}
-		let alpha = colorWithMeta.alpha;
-		if (alphaFormat !== undefined && !(typeof alphaFormat === "object")) {
-			alphaFormat =
-				typeof alphaFormat === "string" ? { type: alphaFormat } : { include: alphaFormat };
-		}
-		let alphaType = alphaFormat?.type ?? "<number>";
-		let serializeAlpha =
-			alphaFormat?.include === true ||
-			format.alpha === true ||
-			(alphaFormat?.include !== false && format.alpha !== false && alpha < 1);
-		let strAlpha = "";
-		commas ??= format.commas;
-		if (serializeAlpha) {
-			if (precision !== null) {
-				let unit;
-				if (alphaType === "<percentage>") {
-					unit = "%";
-					alpha *= 100;
-				}
-				alpha = serializeNumber(alpha, { precision, unit });
-			}
-			strAlpha = `${commas ? "," : " /"} ${alpha}`;
-		}
-		ret = `${name}(${args.join(commas ? ", " : " ")}${strAlpha})`;
-	}
-	return ret;
-}
-
-const toXYZ_M$4 = [
-	[ 0.6369580483012914, 0.14461690358620832,  0.1688809751641721  ],
-	[ 0.2627002120112671, 0.6779980715188708,   0.05930171646986196 ],
-	[ 0.000000000000000,  0.028072693049087428, 1.060985057710791   ],
-];
-const fromXYZ_M$4 = [
-	[  1.716651187971268,  -0.355670783776392, -0.253366281373660  ],
-	[ -0.666684351832489,   1.616481236634939,  0.0157685458139111 ],
-	[  0.017639857445311,  -0.042770613257809,  0.942103121235474  ],
-];
-var REC_2020_Linear = new RGBColorSpace({
-	id: "rec2020-linear",
-	cssId: "--rec2020-linear",
-	name: "Linear REC.2020",
-	white: "D65",
-	toXYZ_M: toXYZ_M$4,
-	fromXYZ_M: fromXYZ_M$4,
-});
-
-var REC2020 = new RGBColorSpace({
-	id: "rec2020",
-	name: "REC.2020",
-	base: REC_2020_Linear,
-	toBase (RGB) {
-		return RGB.map(function (val) {
-			let sign = val < 0 ? -1 : 1;
-			let abs = val * sign;
-			return sign * Math.pow(abs, 2.4);
-		});
-	},
-	fromBase (RGB) {
-		return RGB.map(function (val) {
-			let sign = val < 0 ? -1 : 1;
-			let abs = val * sign;
-			return sign * Math.pow(abs, 1 / 2.4);
-		});
-	},
-});
-
-const toXYZ_M$3 = [
-	[0.4865709486482162, 0.26566769316909306, 0.1982172852343625],
-	[0.2289745640697488, 0.6917385218365064,  0.079286914093745],
-	[0.0000000000000000, 0.04511338185890264, 1.043944368900976],
-];
-const fromXYZ_M$3 = [
-	[ 2.493496911941425,   -0.9313836179191239, -0.40271078445071684],
-	[-0.8294889695615747,   1.7626640603183463,  0.023624685841943577],
-	[ 0.03584583024378447, -0.07617238926804182, 0.9568845240076872],
-];
-var P3Linear = new RGBColorSpace({
-	id: "p3-linear",
-	cssId: "display-p3-linear",
-	name: "Linear P3",
-	white: "D65",
-	toXYZ_M: toXYZ_M$3,
-	fromXYZ_M: fromXYZ_M$3,
-});
-
-const toXYZ_M$2 = [
-	[ 0.41239079926595934, 0.357584339383878,   0.1804807884018343  ],
-	[ 0.21263900587151027, 0.715168678767756,   0.07219231536073371 ],
-	[ 0.01933081871559182, 0.11919477979462598, 0.9505321522496607  ],
-];
-const fromXYZ_M$2 = [
-	[  3.2409699419045226,  -1.537383177570094,   -0.4986107602930034  ],
-	[ -0.9692436362808796,   1.8759675015077202,   0.04155505740717559 ],
-	[  0.05563007969699366, -0.20397695888897652,  1.0569715142428786  ],
-];
-var sRGBLinear = new RGBColorSpace({
-	id: "srgb-linear",
-	name: "Linear sRGB",
-	white: "D65",
-	toXYZ_M: toXYZ_M$2,
-	fromXYZ_M: fromXYZ_M$2,
-});
-
-var KEYWORDS = {
-	aliceblue: [240 / 255, 248 / 255, 1],
-	antiquewhite: [250 / 255, 235 / 255, 215 / 255],
-	aqua: [0, 1, 1],
-	aquamarine: [127 / 255, 1, 212 / 255],
-	azure: [240 / 255, 1, 1],
-	beige: [245 / 255, 245 / 255, 220 / 255],
-	bisque: [1, 228 / 255, 196 / 255],
-	black: [0, 0, 0],
-	blanchedalmond: [1, 235 / 255, 205 / 255],
-	blue: [0, 0, 1],
-	blueviolet: [138 / 255, 43 / 255, 226 / 255],
-	brown: [165 / 255, 42 / 255, 42 / 255],
-	burlywood: [222 / 255, 184 / 255, 135 / 255],
-	cadetblue: [95 / 255, 158 / 255, 160 / 255],
-	chartreuse: [127 / 255, 1, 0],
-	chocolate: [210 / 255, 105 / 255, 30 / 255],
-	coral: [1, 127 / 255, 80 / 255],
-	cornflowerblue: [100 / 255, 149 / 255, 237 / 255],
-	cornsilk: [1, 248 / 255, 220 / 255],
-	crimson: [220 / 255, 20 / 255, 60 / 255],
-	cyan: [0, 1, 1],
-	darkblue: [0, 0, 139 / 255],
-	darkcyan: [0, 139 / 255, 139 / 255],
-	darkgoldenrod: [184 / 255, 134 / 255, 11 / 255],
-	darkgray: [169 / 255, 169 / 255, 169 / 255],
-	darkgreen: [0, 100 / 255, 0],
-	darkgrey: [169 / 255, 169 / 255, 169 / 255],
-	darkkhaki: [189 / 255, 183 / 255, 107 / 255],
-	darkmagenta: [139 / 255, 0, 139 / 255],
-	darkolivegreen: [85 / 255, 107 / 255, 47 / 255],
-	darkorange: [1, 140 / 255, 0],
-	darkorchid: [153 / 255, 50 / 255, 204 / 255],
-	darkred: [139 / 255, 0, 0],
-	darksalmon: [233 / 255, 150 / 255, 122 / 255],
-	darkseagreen: [143 / 255, 188 / 255, 143 / 255],
-	darkslateblue: [72 / 255, 61 / 255, 139 / 255],
-	darkslategray: [47 / 255, 79 / 255, 79 / 255],
-	darkslategrey: [47 / 255, 79 / 255, 79 / 255],
-	darkturquoise: [0, 206 / 255, 209 / 255],
-	darkviolet: [148 / 255, 0, 211 / 255],
-	deeppink: [1, 20 / 255, 147 / 255],
-	deepskyblue: [0, 191 / 255, 1],
-	dimgray: [105 / 255, 105 / 255, 105 / 255],
-	dimgrey: [105 / 255, 105 / 255, 105 / 255],
-	dodgerblue: [30 / 255, 144 / 255, 1],
-	firebrick: [178 / 255, 34 / 255, 34 / 255],
-	floralwhite: [1, 250 / 255, 240 / 255],
-	forestgreen: [34 / 255, 139 / 255, 34 / 255],
-	fuchsia: [1, 0, 1],
-	gainsboro: [220 / 255, 220 / 255, 220 / 255],
-	ghostwhite: [248 / 255, 248 / 255, 1],
-	gold: [1, 215 / 255, 0],
-	goldenrod: [218 / 255, 165 / 255, 32 / 255],
-	gray: [128 / 255, 128 / 255, 128 / 255],
-	green: [0, 128 / 255, 0],
-	greenyellow: [173 / 255, 1, 47 / 255],
-	grey: [128 / 255, 128 / 255, 128 / 255],
-	honeydew: [240 / 255, 1, 240 / 255],
-	hotpink: [1, 105 / 255, 180 / 255],
-	indianred: [205 / 255, 92 / 255, 92 / 255],
-	indigo: [75 / 255, 0, 130 / 255],
-	ivory: [1, 1, 240 / 255],
-	khaki: [240 / 255, 230 / 255, 140 / 255],
-	lavender: [230 / 255, 230 / 255, 250 / 255],
-	lavenderblush: [1, 240 / 255, 245 / 255],
-	lawngreen: [124 / 255, 252 / 255, 0],
-	lemonchiffon: [1, 250 / 255, 205 / 255],
-	lightblue: [173 / 255, 216 / 255, 230 / 255],
-	lightcoral: [240 / 255, 128 / 255, 128 / 255],
-	lightcyan: [224 / 255, 1, 1],
-	lightgoldenrodyellow: [250 / 255, 250 / 255, 210 / 255],
-	lightgray: [211 / 255, 211 / 255, 211 / 255],
-	lightgreen: [144 / 255, 238 / 255, 144 / 255],
-	lightgrey: [211 / 255, 211 / 255, 211 / 255],
-	lightpink: [1, 182 / 255, 193 / 255],
-	lightsalmon: [1, 160 / 255, 122 / 255],
-	lightseagreen: [32 / 255, 178 / 255, 170 / 255],
-	lightskyblue: [135 / 255, 206 / 255, 250 / 255],
-	lightslategray: [119 / 255, 136 / 255, 153 / 255],
-	lightslategrey: [119 / 255, 136 / 255, 153 / 255],
-	lightsteelblue: [176 / 255, 196 / 255, 222 / 255],
-	lightyellow: [1, 1, 224 / 255],
-	lime: [0, 1, 0],
-	limegreen: [50 / 255, 205 / 255, 50 / 255],
-	linen: [250 / 255, 240 / 255, 230 / 255],
-	magenta: [1, 0, 1],
-	maroon: [128 / 255, 0, 0],
-	mediumaquamarine: [102 / 255, 205 / 255, 170 / 255],
-	mediumblue: [0, 0, 205 / 255],
-	mediumorchid: [186 / 255, 85 / 255, 211 / 255],
-	mediumpurple: [147 / 255, 112 / 255, 219 / 255],
-	mediumseagreen: [60 / 255, 179 / 255, 113 / 255],
-	mediumslateblue: [123 / 255, 104 / 255, 238 / 255],
-	mediumspringgreen: [0, 250 / 255, 154 / 255],
-	mediumturquoise: [72 / 255, 209 / 255, 204 / 255],
-	mediumvioletred: [199 / 255, 21 / 255, 133 / 255],
-	midnightblue: [25 / 255, 25 / 255, 112 / 255],
-	mintcream: [245 / 255, 1, 250 / 255],
-	mistyrose: [1, 228 / 255, 225 / 255],
-	moccasin: [1, 228 / 255, 181 / 255],
-	navajowhite: [1, 222 / 255, 173 / 255],
-	navy: [0, 0, 128 / 255],
-	oldlace: [253 / 255, 245 / 255, 230 / 255],
-	olive: [128 / 255, 128 / 255, 0],
-	olivedrab: [107 / 255, 142 / 255, 35 / 255],
-	orange: [1, 165 / 255, 0],
-	orangered: [1, 69 / 255, 0],
-	orchid: [218 / 255, 112 / 255, 214 / 255],
-	palegoldenrod: [238 / 255, 232 / 255, 170 / 255],
-	palegreen: [152 / 255, 251 / 255, 152 / 255],
-	paleturquoise: [175 / 255, 238 / 255, 238 / 255],
-	palevioletred: [219 / 255, 112 / 255, 147 / 255],
-	papayawhip: [1, 239 / 255, 213 / 255],
-	peachpuff: [1, 218 / 255, 185 / 255],
-	peru: [205 / 255, 133 / 255, 63 / 255],
-	pink: [1, 192 / 255, 203 / 255],
-	plum: [221 / 255, 160 / 255, 221 / 255],
-	powderblue: [176 / 255, 224 / 255, 230 / 255],
-	purple: [128 / 255, 0, 128 / 255],
-	rebeccapurple: [102 / 255, 51 / 255, 153 / 255],
-	red: [1, 0, 0],
-	rosybrown: [188 / 255, 143 / 255, 143 / 255],
-	royalblue: [65 / 255, 105 / 255, 225 / 255],
-	saddlebrown: [139 / 255, 69 / 255, 19 / 255],
-	salmon: [250 / 255, 128 / 255, 114 / 255],
-	sandybrown: [244 / 255, 164 / 255, 96 / 255],
-	seagreen: [46 / 255, 139 / 255, 87 / 255],
-	seashell: [1, 245 / 255, 238 / 255],
-	sienna: [160 / 255, 82 / 255, 45 / 255],
-	silver: [192 / 255, 192 / 255, 192 / 255],
-	skyblue: [135 / 255, 206 / 255, 235 / 255],
-	slateblue: [106 / 255, 90 / 255, 205 / 255],
-	slategray: [112 / 255, 128 / 255, 144 / 255],
-	slategrey: [112 / 255, 128 / 255, 144 / 255],
-	snow: [1, 250 / 255, 250 / 255],
-	springgreen: [0, 1, 127 / 255],
-	steelblue: [70 / 255, 130 / 255, 180 / 255],
-	tan: [210 / 255, 180 / 255, 140 / 255],
-	teal: [0, 128 / 255, 128 / 255],
-	thistle: [216 / 255, 191 / 255, 216 / 255],
-	tomato: [1, 99 / 255, 71 / 255],
-	turquoise: [64 / 255, 224 / 255, 208 / 255],
-	violet: [238 / 255, 130 / 255, 238 / 255],
-	wheat: [245 / 255, 222 / 255, 179 / 255],
-	white: [1, 1, 1],
-	whitesmoke: [245 / 255, 245 / 255, 245 / 255],
-	yellow: [1, 1, 0],
-	yellowgreen: [154 / 255, 205 / 255, 50 / 255],
-};
-
-let coordGrammar = Array(3).fill("<percentage> | <number>[0, 255]");
-let coordGrammarNumber = Array(3).fill("<number>[0, 255]");
-var sRGB = new RGBColorSpace({
-	id: "srgb",
-	name: "sRGB",
-	base: sRGBLinear,
-	fromBase: rgb => {
-		return rgb.map(val => {
-			let sign = val < 0 ? -1 : 1;
-			let abs = val * sign;
-			if (abs > 0.0031308) {
-				return sign * (1.055 * abs ** (1 / 2.4) - 0.055);
-			}
-			return 12.92 * val;
-		});
-	},
-	toBase: rgb => {
-		return rgb.map(val => {
-			let sign = val < 0 ? -1 : 1;
-			let abs = val * sign;
-			if (abs <= 0.04045) {
-				return val / 12.92;
-			}
-			return sign * ((abs + 0.055) / 1.055) ** 2.4;
-		});
-	},
-	formats: {
-		rgb: {
-			coords: coordGrammar,
-		},
-		rgb_number: {
-			name: "rgb",
-			commas: true,
-			coords: coordGrammarNumber,
-			alpha: false,
-		},
-		color: {
-		},
-		rgba: {
-			coords: coordGrammar,
-			commas: true,
-			alpha: true,
-		},
-		rgba_number: {
-			name: "rgba",
-			commas: true,
-			coords: coordGrammarNumber,
-		},
-		hex: {
-			type: "custom",
-			toGamut: true,
-			test: str => /^#(([a-f0-9]{2}){3,4}|[a-f0-9]{3,4})$/i.test(str),
-			parse (str) {
-				if (str.length <= 5) {
-					str = str.replace(/[a-f0-9]/gi, "$&$&");
-				}
-				let rgba = [];
-				str.replace(/[a-f0-9]{2}/gi, component => {
-					rgba.push(parseInt(component, 16) / 255);
-				});
-				return {
-					spaceId: "srgb",
-					coords:  (rgba.slice(0, 3)),
-					alpha:  (rgba.slice(3)[0]),
-				};
-			},
-			serialize: (
-				coords,
-				alpha,
-				{
-					collapse = true,
-					alpha: alphaFormat,
-				} = {},
-			) => {
-				if ((alphaFormat !== false && alpha < 1) || alphaFormat === true) {
-					coords.push(alpha);
-				}
-				coords =  (
-					coords.map(c => Math.round(c * 255))
-				);
-				let collapsible = collapse && coords.every(c => c % 17 === 0);
-				let hex = coords
-					.map(c => {
-						if (collapsible) {
-							return (c / 17).toString(16);
-						}
-						return c.toString(16).padStart(2, "0");
-					})
-					.join("");
-				return "#" + hex;
-			},
-		},
-		keyword: {
-			type: "custom",
-			test: str => /^[a-z]+$/i.test(str),
-			parse (str) {
-				str = str.toLowerCase();
-				let ret = { spaceId: "srgb", coords: null, alpha: 1 };
-				if (str === "transparent") {
-					ret.coords = KEYWORDS.black;
-					ret.alpha = 0;
-				}
-				else {
-					ret.coords = KEYWORDS[str];
-				}
-				if (ret.coords) {
-					return ret;
-				}
-			},
-		},
-	},
-});
-
-var P3 = new RGBColorSpace({
-	id: "p3",
-	cssId: "display-p3",
-	name: "P3",
-	base: P3Linear,
-	fromBase: sRGB.fromBase,
-	toBase: sRGB.toBase,
-});
-
-var hsl = new ColorSpace({
-	id: "hsl",
-	name: "HSL",
-	coords: {
-		h: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-		s: {
-			range: [0, 100],
-			name: "Saturation",
-		},
-		l: {
-			range: [0, 100],
-			name: "Lightness",
-		},
-	},
-	base: sRGB,
-	fromBase: rgb => {
-		let max = Math.max(...rgb);
-		let min = Math.min(...rgb);
-		let [r, g, b] = rgb;
-		let [h, s, l] = [null, 0, (min + max) / 2];
-		let d = max - min;
-		if (d !== 0) {
-			s = l === 0 || l === 1 ? 0 : (max - l) / Math.min(l, 1 - l);
-			switch (max) {
-				case r:
-					h = (g - b) / d + (g < b ? 6 : 0);
-					break;
-				case g:
-					h = (b - r) / d + 2;
-					break;
-				case b:
-					h = (r - g) / d + 4;
-			}
-			h = h * 60;
-		}
-		if (s < 0) {
-			h += 180;
-			s = Math.abs(s);
-		}
-		if (h >= 360) {
-			h -= 360;
-		}
-		return [h, s * 100, l * 100];
-	},
-	toBase: hsl => {
-		let [h, s, l] = hsl;
-		h = h % 360;
-		if (h < 0) {
-			h += 360;
-		}
-		s /= 100;
-		l /= 100;
-		function f (n) {
-			let k = (n + h / 30) % 12;
-			let a = s * Math.min(l, 1 - l);
-			return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-		}
-		return [f(0), f(8), f(4)];
-	},
-	formats: {
-		hsl: {
-			coords: ["<number> | <angle>", "<percentage> | <number>", "<percentage> | <number>"],
-		},
-		hsla: {
-			coords: ["<number> | <angle>", "<percentage> | <number>", "<percentage> | <number>"],
-			commas: true,
-			alpha: true,
-		},
-	},
-});
-
-var HSV = new ColorSpace({
-	id: "hsv",
-	name: "HSV",
-	coords: {
-		h: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-		s: {
-			range: [0, 100],
-			name: "Saturation",
-		},
-		v: {
-			range: [0, 100],
-			name: "Value",
-		},
-	},
-	base: sRGB,
-	fromBase (rgb) {
-		let max = Math.max(...rgb);
-		let min = Math.min(...rgb);
-		let [r, g, b] = rgb;
-		let [h, s, v] = [null, 0, max];
-		let d = max - min;
-		if (d !== 0) {
-			switch (max) {
-				case r:
-					h = (g - b) / d + (g < b ? 6 : 0);
-					break;
-				case g:
-					h = (b - r) / d + 2;
-					break;
-				case b:
-					h = (r - g) / d + 4;
-			}
-			h = h * 60;
-		}
-		if (v) {
-			s = d / v;
-		}
-		if (h >= 360) {
-			h -= 360;
-		}
-		return [h, s * 100, v * 100];
-	},
-	toBase (hsv) {
-		let [h, s, v] = hsv;
-		h = h % 360;
-		if (h < 0) {
-			h += 360;
-		}
-		s /= 100;
-		v /= 100;
-		function f (n) {
-			let k = (n + h / 60) % 6;
-			return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
-		}
-		return [f(5), f(3), f(1)];
-	},
-	formats: {
-		color: {
-			id: "--hsv",
-			coords: ["<number> | <angle>", "<percentage> | <number>", "<percentage> | <number>"],
-		},
-	},
-});
-
-var hwb = new ColorSpace({
-	id: "hwb",
-	name: "HWB",
-	coords: {
-		h: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-		w: {
-			range: [0, 100],
-			name: "Whiteness",
-		},
-		b: {
-			range: [0, 100],
-			name: "Blackness",
-		},
-	},
-	base: HSV,
-	fromBase (hsv) {
-		let [h, s, v] = hsv;
-		return [h, (v * (100 - s)) / 100, 100 - v];
-	},
-	toBase (hwb) {
-		let [h, w, b] = hwb;
-		w /= 100;
-		b /= 100;
-		let sum = w + b;
-		if (sum >= 1) {
-			let gray = w / sum;
-			return [h, 0, gray * 100];
-		}
-		let v = 1 - b;
-		let s = v === 0 ? 0 : 1 - w / v;
-		return [h, s * 100, v * 100];
-	},
-	formats: {
-		hwb: {
-			coords: ["<number> | <angle>", "<percentage> | <number>", "<percentage> | <number>"],
-		},
-	},
-});
-
-const toXYZ_M$1 = [
-	[ 0.5766690429101305,   0.1855582379065463,   0.1882286462349947  ],
-	[ 0.29734497525053605,  0.6273635662554661,   0.07529145849399788 ],
-	[ 0.02703136138641234,  0.07068885253582723,  0.9913375368376388  ],
-];
-const fromXYZ_M$1 = [
-	[  2.0415879038107465,    -0.5650069742788596,   -0.34473135077832956 ],
-	[ -0.9692436362808795,     1.8759675015077202,    0.04155505740717557 ],
-	[  0.013444280632031142,  -0.11836239223101838,   1.0151749943912054  ],
-];
-var A98Linear = new RGBColorSpace({
-	id: "a98rgb-linear",
-	cssId: "--a98-rgb-linear",
-	name: "Linear Adobe® 98 RGB compatible",
-	white: "D65",
-	toXYZ_M: toXYZ_M$1,
-	fromXYZ_M: fromXYZ_M$1,
-});
-
-var a98rgb = new RGBColorSpace({
-	id: "a98rgb",
-	cssId: "a98-rgb",
-	name: "Adobe® 98 RGB compatible",
-	base: A98Linear,
-	toBase: RGB => RGB.map(val => Math.pow(Math.abs(val), 563 / 256) * Math.sign(val)),
-	fromBase: RGB => RGB.map(val => Math.pow(Math.abs(val), 256 / 563) * Math.sign(val)),
-});
-
-const toXYZ_M = [
-	[ 0.79776664490064230,  0.13518129740053308,  0.03134773412839220 ],
-	[ 0.28807482881940130,  0.71183523424187300,  0.00008993693872564 ],
-	[ 0.00000000000000000,  0.00000000000000000,  0.82510460251046020 ],
-];
-const fromXYZ_M = [
-	[  1.34578688164715830, -0.25557208737979464, -0.05110186497554526 ],
-	[ -0.54463070512490190,  1.50824774284514680,  0.02052744743642139 ],
-	[  0.00000000000000000,  0.00000000000000000,  1.21196754563894520 ],
-];
-var ProPhotoLinear = new RGBColorSpace({
-	id: "prophoto-linear",
-	cssId: "--prophoto-rgb-linear",
-	name: "Linear ProPhoto",
-	white: "D50",
-	base: XYZ_D50,
-	toXYZ_M,
-	fromXYZ_M,
-});
-
-const Et = 1 / 512;
-const Et2 = 16 / 512;
-var prophoto = new RGBColorSpace({
-	id: "prophoto",
-	cssId: "prophoto-rgb",
-	name: "ProPhoto",
-	base: ProPhotoLinear,
-	toBase (RGB) {
-		return RGB.map(v => {
-			let sign = v < 0 ? -1 : 1;
-			let abs = v * sign;
-			if (abs < Et2) {
-				return v / 16;
-			}
-			return sign * abs ** 1.8;
-		});
-	},
-	fromBase (RGB) {
-		return RGB.map(v => {
-			let sign = v < 0 ? -1 : 1;
-			let abs = v * sign;
-			if (abs >= Et) {
-				return sign * abs ** (1 / 1.8);
-			}
-			return 16 * v;
-		});
-	},
-});
-
-var oklch = new ColorSpace({
-	id: "oklch",
-	name: "OkLCh",
-	coords: {
-		l: {
-			refRange: [0, 1],
-			name: "Lightness",
-		},
-		c: {
-			refRange: [0, 0.4],
-			name: "Chroma",
-		},
-		h: {
-			refRange: [0, 360],
-			type: "angle",
-			name: "Hue",
-		},
-	},
-	white: "D65",
-	base: Oklab,
-	fromBase: lch.fromBase,
-	toBase: lch.toBase,
-	formats: {
-		oklch: {
-			coords: ["<percentage> | <number>", "<number> | <percentage>", "<number> | <angle>"],
-		},
-	},
-});
-
 /*
- * Registers the colorjs.io colour spaces the picker parses and converts between
- * (sRGB, OKLCH, OKLab, LCH, Lab, HSL, HWB, P3, Rec2020, ProPhoto, A98, XYZ).
- * Imported for its side-effect by the model and the area-compute module.
- * Space list adapted from Adam Argyle's color-input (MIT).
- */
-ColorSpace.register(sRGB);
-ColorSpace.register(sRGBLinear);
-ColorSpace.register(hsl);
-ColorSpace.register(hwb);
-ColorSpace.register(lab);
-ColorSpace.register(lch);
-ColorSpace.register(Oklab);
-ColorSpace.register(oklch);
-ColorSpace.register(P3);
-ColorSpace.register(a98rgb);
-ColorSpace.register(prophoto);
-ColorSpace.register(REC2020);
-ColorSpace.register(xyz_d65);
-ColorSpace.register(XYZ_D50);
-
-/*
- * Internal colour model for the OKLCH plugin — a thin immutable wrapper over
- * colorjs.io/fn.
+ * Colour-space conversions — the maths backbone of the picker.
  *
- * Canonical representation is OKLCH: it is the picker's working space and is
- * lossless across sRGB / Display-P3 / Rec2020, so dragging into the wide-gamut
- * region of the area picker never clips mid-edit. The binding's *source format*
- * (hex / rgb() / oklch() / color(display-p3 …) …) is remembered so values
- * round-trip in whatever shape the user supplied, and the verbatim source string
- * is returned unchanged until the colour is actually edited.
+ * Every conversion hubs through CIE XYZ. sRGB / Display-P3 / Rec2020 are D65;
+ * Lab / LCH / ProPhoto are D50 and cross to D65 via a Bradford adaptation.
+ * OKLab/OKLCH use Björn Ottosson's matrices (D65). The matrix and
+ * transfer-function constants are the CSS Color 4 reference values
+ * (https://www.w3.org/TR/css-color-4/), so results match colorjs.io to within
+ * ~1e-12 — the parity tests in test/ gate on exactly that.
+ *
+ * Conventions (matching colorjs.io coords, so the model can pass ids straight
+ * through): hues are degrees; RGB-family channels 0..1; OKLab/OKLCH L is 0..1;
+ * Lab/LCH L is 0..100; HSL S/L and HWB W/B are 0..100.
  */
+const DEG = 180 / Math.PI;
+const RAD = Math.PI / 180;
+/** 3×3 matrix × 3-vector. */
+function mul(m, v) {
+    return [
+        m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+        m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+        m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
+    ];
+}
+// ── Transfer functions (gamma ↔ linear), all sign-preserving per CSS Color 4 ──
+/** sRGB / Display-P3 gamma → linear-light. */
+function srgbLin(c) {
+    const a = Math.abs(c);
+    return a <= 0.04045 ? c / 12.92 : Math.sign(c) * ((a + 0.055) / 1.055) ** 2.4;
+}
+/** Linear-light → sRGB / Display-P3 gamma. */
+function srgbGam(c) {
+    const a = Math.abs(c);
+    return a <= 0.0031308
+        ? c * 12.92
+        : Math.sign(c) * (1.055 * a ** (1 / 2.4) - 0.055);
+}
+// colorjs.io 0.6 models Rec2020 with a plain 2.4 gamma (no linear toe / α-β
+// OETF). We match that exactly so rec2020 values stay identical to what the
+// plugin ships today; see the parity tests. (A spec-correct OETF would differ
+// slightly near black — a deliberate change we've chosen not to make here.)
+function rec2020Lin(c) {
+    return Math.sign(c) * Math.abs(c) ** 2.4;
+}
+function rec2020Gam(c) {
+    return Math.sign(c) * Math.abs(c) ** (1 / 2.4);
+}
+const PRO_ET = 1 / 512;
+function prophotoLin(c) {
+    const a = Math.abs(c);
+    return a <= PRO_ET * 16 ? c / 16 : Math.sign(c) * a ** 1.8;
+}
+function prophotoGam(c) {
+    const a = Math.abs(c);
+    return a >= PRO_ET ? Math.sign(c) * a ** (1 / 1.8) : 16 * c;
+}
+// ── Matrices: linear RGB ↔ XYZ (D65 unless noted), Bradford, OKLab ───────────
+const LIN_SRGB_TO_XYZ = [
+    [0.41239079926595934, 0.357584339383878, 0.1804807884018343],
+    [0.21263900587151027, 0.715168678767756, 0.07219231536073371],
+    [0.01933081871559182, 0.11919477979462598, 0.9505321522496607],
+];
+const XYZ_TO_LIN_SRGB = [
+    [3.2409699419045226, -1.537383177570094, -0.4986107602930034],
+    [-0.9692436362808796, 1.8759675015077202, 0.04155505740717559],
+    [0.05563007969699366, -0.20397695888897652, 1.0569715142428786],
+];
+const LIN_P3_TO_XYZ = [
+    [0.4865709486482162, 0.26566769316909306, 0.19821728523436247],
+    [0.2289745640697488, 0.6917385218365064, 0.079286914093745],
+    [0, 0.04511338185890264, 1.043944368900976],
+];
+const XYZ_TO_LIN_P3 = [
+    [2.493496911941425, -0.9313836179191239, -0.40271078445071684],
+    [-0.8294889695615747, 1.7626640603183463, 0.023624685841943577],
+    [0.03584583024378447, -0.07617238926804182, 0.9568845240076872],
+];
+const LIN_REC2020_TO_XYZ = [
+    [0.6369580483012914, 0.14461690358620832, 0.16888097516417205],
+    [0.2627002120112671, 0.6779980715188708, 0.05930171646986196],
+    [0, 0.028072693049087428, 1.060985057710791],
+];
+const XYZ_TO_LIN_REC2020 = [
+    [1.7166511879712674, -0.35567078377639233, -0.25336628137365974],
+    [-0.6666843518324892, 1.6164812366349395, 0.01576854581391113],
+    [0.017639857445310783, -0.042770613257808524, 0.9421031212354738],
+];
+// ProPhoto is D50-referenced.
+const LIN_PRO_TO_XYZ_D50 = [
+    [0.7977604896723027, 0.13518583717574031, 0.0313493495815248],
+    [0.2880711282292934, 0.7118432178101014, 0.00008565396060525902],
+    [0, 0, 0.8251046025104601],
+];
+const XYZ_D50_TO_LIN_PRO = [
+    [1.3457989731028281, -0.25558010007997534, -0.05110628506753401],
+    [-0.5446224939028347, 1.5082327413132781, 0.02053603239147973],
+    [0, 0, 1.2119675456389454],
+];
+// Bradford-adapted XYZ white-point conversion.
+const XYZ_D65_TO_D50 = [
+    [1.0479298208405488, 0.022946793341019088, -0.05019222954313557],
+    [0.029627815688159344, 0.990434484573249, -0.01707382502938514],
+    [-0.009243058152591178, 0.015055144896577895, 0.7518742899580008],
+];
+const XYZ_D50_TO_D65 = [
+    [0.9554734527042182, -0.023098536874261423, 0.0632593086610217],
+    [-0.028369706963208136, 1.0099954580058226, 0.021041398966943008],
+    [0.012314001688319899, -0.020507696433477912, 1.3303659366080753],
+];
+// OKLab (Ottosson), referenced to XYZ-D65.
+const XYZ_TO_LMS = [
+    [0.819022437996703, 0.3619062600528904, -0.1288737815209879],
+    [0.0329836539323885, 0.9292868615863434, 0.0361446663506424],
+    [0.0481771893596242, 0.2642395317527308, 0.6335478284694309],
+];
+const LMS_TO_XYZ = [
+    [1.2268798758459243, -0.5578149944602171, 0.2813910456659647],
+    [-0.0405757452148008, 1.112286803280317, -0.0717110580655164],
+    [-0.0763729366746601, -0.4214933324022432, 1.5869240198367816],
+];
+const LMS_TO_OKLAB = [
+    [0.210454268309314, 0.7936177747023054, -0.0040720430116193],
+    [1.9779985324311684, -2.42859224204858, 0.450593709617411],
+    [0.0259040424655478, 0.7827717124575296, -0.8086757549230774],
+];
+const OKLAB_TO_LMS = [
+    [1.0, 0.3963377773761749, 0.2158037573099136],
+    [1.0, -0.1055613458156586, -0.0638541728258133],
+    [1.0, -0.0894841775298119, -1.2914855480194092],
+];
+// CIE Lab (D50).
+const LAB_E = 216 / 24389;
+const LAB_K = 24389 / 27;
+const WHITE_D50 = [
+    0.3457 / 0.3585,
+    1.0,
+    (1.0 - 0.3457 - 0.3585) / 0.3585,
+];
+// ── Space ↔ XYZ-D65 (the hub) ────────────────────────────────────────────────
+function rgbToXyz(c, lin, m) {
+    return mul(m, [lin(c[0]), lin(c[1]), lin(c[2])]);
+}
+function xyzToRgb(xyz, gam, m) {
+    const l = mul(m, xyz);
+    return [gam(l[0]), gam(l[1]), gam(l[2])];
+}
+function oklabToXyz(lab) {
+    const p = mul(OKLAB_TO_LMS, lab);
+    return mul(LMS_TO_XYZ, [p[0] ** 3, p[1] ** 3, p[2] ** 3]);
+}
+function xyzToOklab(xyz) {
+    const lms = mul(XYZ_TO_LMS, xyz);
+    return mul(LMS_TO_OKLAB, [
+        Math.cbrt(lms[0]),
+        Math.cbrt(lms[1]),
+        Math.cbrt(lms[2]),
+    ]);
+}
+function labToXyz(lab) {
+    const [L, a, b] = lab;
+    const fy = (L + 16) / 116;
+    const fx = a / 500 + fy;
+    const fz = fy - b / 200;
+    const x = fx ** 3 > LAB_E ? fx ** 3 : (116 * fx - 16) / LAB_K;
+    const y = L > LAB_K * LAB_E ? fy ** 3 : L / LAB_K;
+    const z = fz ** 3 > LAB_E ? fz ** 3 : (116 * fz - 16) / LAB_K;
+    return mul(XYZ_D50_TO_D65, [
+        x * WHITE_D50[0],
+        y * WHITE_D50[1],
+        z * WHITE_D50[2],
+    ]);
+}
+function xyzToLab(xyz) {
+    const d50 = mul(XYZ_D65_TO_D50, xyz);
+    const f = (t) => t > LAB_E ? Math.cbrt(t) : (LAB_K * t + 16) / 116;
+    const fx = f(d50[0] / WHITE_D50[0]);
+    const fy = f(d50[1] / WHITE_D50[1]);
+    const fz = f(d50[2] / WHITE_D50[2]);
+    return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+/** Rectangular → polar on channels [1],[2] (Lab→LCH, OKLab→OKLCH). Hue in deg. */
+function toPolar(rect) {
+    const C = Math.hypot(rect[1], rect[2]);
+    let h = Math.atan2(rect[2], rect[1]) * DEG;
+    if (h < 0)
+        h += 360;
+    return [rect[0], C, h];
+}
+/** Polar → rectangular on channels [1],[2] (LCH→Lab, OKLCH→OKLab). */
+function toRect(polar) {
+    return [
+        polar[0],
+        polar[1] * Math.cos(polar[2] * RAD),
+        polar[1] * Math.sin(polar[2] * RAD),
+    ];
+}
+function hslToSrgb(hsl) {
+    // A powerless hue (NaN, e.g. round-tripped from a grey) is achromatic, so
+    // fold it to 0 — otherwise it poisons the output through `0 * NaN`.
+    const h = (((Number.isNaN(hsl[0]) ? 0 : hsl[0]) % 360) + 360) % 360;
+    const s = hsl[1] / 100;
+    const l = hsl[2] / 100;
+    const f = (n) => {
+        const k = (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    };
+    return [f(0), f(8), f(4)];
+}
+/** sRGB → hue in degrees (NaN if achromatic), before any out-of-gamut fixup.
+ *  Shared by HSL and HWB. */
+function srgbHue(rgb) {
+    const max = Math.max(rgb[0], rgb[1], rgb[2]);
+    const min = Math.min(rgb[0], rgb[1], rgb[2]);
+    const d = max - min;
+    if (d === 0) {
+        return NaN;
+    }
+    let h;
+    if (max === rgb[0])
+        h = (rgb[1] - rgb[2]) / d + (rgb[1] < rgb[2] ? 6 : 0);
+    else if (max === rgb[1])
+        h = (rgb[2] - rgb[0]) / d + 2;
+    else
+        h = (rgb[0] - rgb[1]) / d + 4;
+    return h * 60;
+}
+function srgbToHsl(rgb) {
+    const max = Math.max(rgb[0], rgb[1], rgb[2]);
+    const min = Math.min(rgb[0], rgb[1], rgb[2]);
+    const l = (min + max) / 2;
+    let h = srgbHue(rgb);
+    let s = max === min || l === 0 || l === 1 ? 0 : (max - l) / Math.min(l, 1 - l);
+    // Out-of-gamut sRGB (lightness outside [0,1]) drives saturation negative;
+    // colorjs normalises that by flipping the hue 180° and taking |s|. (HWB,
+    // below, takes the raw hue — it has no saturation to go negative.)
+    if (s < 0) {
+        h += 180;
+        s = -s;
+    }
+    if (h >= 360) {
+        h -= 360;
+    }
+    return [h, s * 100, l * 100];
+}
+function hwbToSrgb(hwb) {
+    const w = hwb[1] / 100;
+    const b = hwb[2] / 100;
+    if (w + b >= 1) {
+        const g = w / (w + b);
+        return [g, g, g];
+    }
+    const rgb = hslToSrgb([hwb[0], 100, 50]);
+    const scale = 1 - w - b;
+    return [rgb[0] * scale + w, rgb[1] * scale + w, rgb[2] * scale + w];
+}
+function srgbToHwb(rgb) {
+    const w = Math.min(rgb[0], rgb[1], rgb[2]);
+    const b = 1 - Math.max(rgb[0], rgb[1], rgb[2]);
+    return [srgbHue(rgb), w * 100, b * 100];
+}
+/** Coords of `space` → XYZ-D65. */
+function toXyz(c, space) {
+    switch (space) {
+        case 'srgb':
+            return rgbToXyz(c, srgbLin, LIN_SRGB_TO_XYZ);
+        case 'p3':
+            return rgbToXyz(c, srgbLin, LIN_P3_TO_XYZ);
+        case 'rec2020':
+            return rgbToXyz(c, rec2020Lin, LIN_REC2020_TO_XYZ);
+        case 'prophoto-rgb':
+            return mul(XYZ_D50_TO_D65, rgbToXyz(c, prophotoLin, LIN_PRO_TO_XYZ_D50));
+        case 'oklab':
+            return oklabToXyz(c);
+        case 'oklch':
+            return oklabToXyz(toRect(c));
+        case 'lab':
+            return labToXyz(c);
+        case 'lch':
+            return labToXyz(toRect(c));
+        case 'hsl':
+            return rgbToXyz(hslToSrgb(c), srgbLin, LIN_SRGB_TO_XYZ);
+        case 'hwb':
+            return rgbToXyz(hwbToSrgb(c), srgbLin, LIN_SRGB_TO_XYZ);
+    }
+}
+/** XYZ-D65 → coords of `space`. */
+function fromXyz(xyz, space) {
+    switch (space) {
+        case 'srgb':
+            return xyzToRgb(xyz, srgbGam, XYZ_TO_LIN_SRGB);
+        case 'p3':
+            return xyzToRgb(xyz, srgbGam, XYZ_TO_LIN_P3);
+        case 'rec2020':
+            return xyzToRgb(xyz, rec2020Gam, XYZ_TO_LIN_REC2020);
+        case 'prophoto-rgb':
+            return xyzToRgb(mul(XYZ_D65_TO_D50, xyz), prophotoGam, XYZ_D50_TO_LIN_PRO);
+        case 'oklab':
+            return xyzToOklab(xyz);
+        case 'oklch':
+            return toPolar(xyzToOklab(xyz));
+        case 'lab':
+            return xyzToLab(xyz);
+        case 'lch':
+            return toPolar(xyzToLab(xyz));
+        case 'hsl':
+            return srgbToHsl(xyzToRgb(xyz, srgbGam, XYZ_TO_LIN_SRGB));
+        case 'hwb':
+            return srgbToHwb(xyzToRgb(xyz, srgbGam, XYZ_TO_LIN_SRGB));
+    }
+}
+/**
+ * Convert `coords` from one space to another. Same-family polar pairs convert
+ * directly (so an achromatic colour keeps its hue rather than losing it through
+ * the XYZ round-trip); everything else hubs through XYZ-D65.
+ */
+function convert(coords, from, to) {
+    if (from === to) {
+        return [coords[0], coords[1], coords[2]];
+    }
+    if (from === 'oklch' && to === 'oklab')
+        return toRect(coords);
+    if (from === 'oklab' && to === 'oklch')
+        return toPolar(coords);
+    if (from === 'lch' && to === 'lab')
+        return toRect(coords);
+    if (from === 'lab' && to === 'lch')
+        return toPolar(coords);
+    return fromXyz(toXyz(coords, from), to);
+}
+
+// colorjs's default inGamut epsilon — small slack so a colour exactly on the
+// boundary counts as inside.
+const EPSILON = 0.000075;
+/** Is `coords` (expressed in `space`) inside the `gamut` RGB space? */
+function inGamut(coords, space, gamut) {
+    const rgb = space === gamut ? coords : convert(coords, space, gamut);
+    return rgb.every((c) => c >= -EPSILON && c <= 1 + EPSILON);
+}
+function clip(rgb) {
+    return [
+        Math.min(1, Math.max(0, rgb[0])),
+        Math.min(1, Math.max(0, rgb[1])),
+        Math.min(1, Math.max(0, rgb[2])),
+    ];
+}
+/** OKLab ΔE: Euclidean distance in OKLab. */
+function deltaEOK(a, b) {
+    return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+/**
+ * Map an OKLCH colour into `dest` (an RGB gamut) per CSS Color 4: if it already
+ * fits, just convert; otherwise binary-search OKLCH chroma down, clipping
+ * locally and stopping when the clipped result is within an OKLab JND.
+ */
+function toGamut(oklch, dest) {
+    if (inGamut(oklch, 'oklch', dest)) {
+        return convert(oklch, 'oklch', dest);
+    }
+    const L = oklch[0];
+    if (L >= 1) {
+        return [1, 1, 1];
+    }
+    if (L <= 0) {
+        return [0, 0, 0];
+    }
+    const JND = 0.02;
+    const EPS = 0.0001;
+    const current = [oklch[0], oklch[1], oklch[2]];
+    let min = 0;
+    let max = oklch[1];
+    let minInGamut = true;
+    let clipped = clip(convert(current, 'oklch', dest));
+    while (max - min > EPS) {
+        const chroma = (min + max) / 2;
+        current[1] = chroma;
+        const inDest = convert(current, 'oklch', dest);
+        if (minInGamut && inDest.every((c) => c >= -EPSILON && c <= 1 + EPSILON)) {
+            min = chroma;
+            continue;
+        }
+        clipped = clip(inDest);
+        const e = deltaEOK(convert(clipped, dest, 'oklab'), convert(current, 'oklch', 'oklab'));
+        if (e < JND) {
+            if (JND - e < EPS) {
+                return clipped;
+            }
+            minInGamut = false;
+            min = chroma;
+        }
+        else {
+            max = chroma;
+        }
+    }
+    return clipped;
+}
+
+/** color() identifiers we support → our Space ids. */
+const COLOR_FN_SPACES = {
+    srgb: 'srgb',
+    'display-p3': 'p3',
+    rec2020: 'rec2020',
+    'prophoto-rgb': 'prophoto-rgb',
+};
+function parseAngle(tok) {
+    const n = parseFloat(tok);
+    if (tok.endsWith('turn'))
+        return n * 360;
+    if (tok.endsWith('grad'))
+        return n * 0.9;
+    if (tok.endsWith('rad'))
+        return (n * 180) / Math.PI;
+    return n; // deg or unitless
+}
+/** Parse one channel token under the given interpretation. `none` → 0. */
+function chan(tok, kind) {
+    tok = tok.trim();
+    if (tok === 'none')
+        return 0;
+    if (kind === 'angle')
+        return parseAngle(tok);
+    const pct = tok.endsWith('%');
+    const n = parseFloat(tok);
+    switch (kind) {
+        case 'rgb':
+            return pct ? n / 100 : n / 255; // → 0..1
+        case 'alpha':
+            return pct ? n / 100 : n; // → 0..1
+        case 'pct':
+            return n; // hsl S/L, hwb W/B, lab/lch L: value is already 0..100
+        case 'okL':
+            return pct ? n / 100 : n; // oklch/oklab L → 0..1
+        case 'unit':
+            return pct ? n / 100 : n; // color() channel → 0..1
+        case 'labAB':
+            return pct ? n * 1.25 : n; // 100% ↔ 125
+        case 'lchC':
+            return pct ? n * 1.5 : n; // 100% ↔ 150
+        case 'okAB':
+            return pct ? n * 0.004 : n; // 100% ↔ 0.4
+    }
+}
+/** Split a function's inner text into channel tokens + an optional alpha token,
+ *  handling both legacy comma syntax and modern space / slash syntax. */
+function splitArgs(inner) {
+    const t = inner.trim();
+    if (t.includes(',')) {
+        const parts = t.split(',').map((s) => s.trim());
+        // Legacy syntax is exactly 3 (no alpha) or 4 (with alpha) comma parts; any
+        // other count is malformed and falls through to the caller's strict check.
+        return parts.length === 4
+            ? { channels: parts.slice(0, 3), alpha: parts[3] }
+            : { channels: parts, alpha: null };
+    }
+    const [body, alpha] = t.split('/');
+    return {
+        channels: body.trim().split(/\s+/),
+        alpha: alpha != null ? alpha.trim() : null,
+    };
+}
+function hexToSrgb(hex) {
+    let h = hex.slice(1);
+    if (h.length === 3 || h.length === 4) {
+        h = h
+            .split('')
+            .map((c) => c + c)
+            .join('');
+    }
+    if (h.length !== 6 && h.length !== 8) {
+        return null;
+    }
+    const v = (i) => parseInt(h.slice(i, i + 2), 16) / 255;
+    return {
+        space: 'srgb',
+        coords: [v(0), v(2), v(4)],
+        alpha: h.length === 8 ? v(6) : 1,
+    };
+}
+/** Three channel kinds + the space, per function name. */
+const FUNCS = {
+    rgb: { space: 'srgb', kinds: ['rgb', 'rgb', 'rgb'] },
+    rgba: { space: 'srgb', kinds: ['rgb', 'rgb', 'rgb'] },
+    hsl: { space: 'hsl', kinds: ['angle', 'pct', 'pct'] },
+    hsla: { space: 'hsl', kinds: ['angle', 'pct', 'pct'] },
+    hwb: { space: 'hwb', kinds: ['angle', 'pct', 'pct'] },
+    lab: { space: 'lab', kinds: ['pct', 'labAB', 'labAB'] },
+    lch: { space: 'lch', kinds: ['pct', 'lchC', 'angle'] },
+    oklab: { space: 'oklab', kinds: ['okL', 'okAB', 'okAB'] },
+    oklch: { space: 'oklch', kinds: ['okL', 'okAB', 'angle'] },
+};
+function parse(css) {
+    const s = css.trim().toLowerCase();
+    if (s === 'transparent') {
+        return { space: 'srgb', coords: [0, 0, 0], alpha: 0 };
+    }
+    if (s[0] === '#') {
+        return /^#[0-9a-f]+$/.test(s) ? hexToSrgb(s) : null;
+    }
+    const fn = /^([a-z0-9-]+)\(([^)]*)\)$/.exec(s);
+    if (fn) {
+        const name = fn[1];
+        const { channels, alpha } = splitArgs(fn[2]);
+        const a = alpha != null ? chan(alpha, 'alpha') : 1;
+        if (name === 'color') {
+            const space = COLOR_FN_SPACES[channels[0]];
+            if (!space || channels.length !== 4) {
+                return null;
+            }
+            return {
+                space,
+                coords: [
+                    chan(channels[1], 'unit'),
+                    chan(channels[2], 'unit'),
+                    chan(channels[3], 'unit'),
+                ],
+                alpha: a,
+            };
+        }
+        const spec = FUNCS[name];
+        if (!spec || channels.length !== 3) {
+            return null;
+        }
+        return {
+            space: spec.space,
+            coords: [
+                chan(channels[0], spec.kinds[0]),
+                chan(channels[1], spec.kinds[1]),
+                chan(channels[2], spec.kinds[2]),
+            ],
+            alpha: a,
+        };
+    }
+    const named = NAMED_COLORS[s];
+    return named ? hexToSrgb(named) : null;
+}
+/** CSS named colours → hex (the extended set, plus `rebeccapurple`). */
+const NAMED_COLORS = {
+    aliceblue: '#f0f8ff',
+    antiquewhite: '#faebd7',
+    aqua: '#00ffff',
+    aquamarine: '#7fffd4',
+    azure: '#f0ffff',
+    beige: '#f5f5dc',
+    bisque: '#ffe4c4',
+    black: '#000000',
+    blanchedalmond: '#ffebcd',
+    blue: '#0000ff',
+    blueviolet: '#8a2be2',
+    brown: '#a52a2a',
+    burlywood: '#deb887',
+    cadetblue: '#5f9ea0',
+    chartreuse: '#7fff00',
+    chocolate: '#d2691e',
+    coral: '#ff7f50',
+    cornflowerblue: '#6495ed',
+    cornsilk: '#fff8dc',
+    crimson: '#dc143c',
+    cyan: '#00ffff',
+    darkblue: '#00008b',
+    darkcyan: '#008b8b',
+    darkgoldenrod: '#b8860b',
+    darkgray: '#a9a9a9',
+    darkgreen: '#006400',
+    darkgrey: '#a9a9a9',
+    darkkhaki: '#bdb76b',
+    darkmagenta: '#8b008b',
+    darkolivegreen: '#556b2f',
+    darkorange: '#ff8c00',
+    darkorchid: '#9932cc',
+    darkred: '#8b0000',
+    darksalmon: '#e9967a',
+    darkseagreen: '#8fbc8f',
+    darkslateblue: '#483d8b',
+    darkslategray: '#2f4f4f',
+    darkslategrey: '#2f4f4f',
+    darkturquoise: '#00ced1',
+    darkviolet: '#9400d3',
+    deeppink: '#ff1493',
+    deepskyblue: '#00bfff',
+    dimgray: '#696969',
+    dimgrey: '#696969',
+    dodgerblue: '#1e90ff',
+    firebrick: '#b22222',
+    floralwhite: '#fffaf0',
+    forestgreen: '#228b22',
+    fuchsia: '#ff00ff',
+    gainsboro: '#dcdcdc',
+    ghostwhite: '#f8f8ff',
+    gold: '#ffd700',
+    goldenrod: '#daa520',
+    gray: '#808080',
+    green: '#008000',
+    greenyellow: '#adff2f',
+    grey: '#808080',
+    honeydew: '#f0fff0',
+    hotpink: '#ff69b4',
+    indianred: '#cd5c5c',
+    indigo: '#4b0082',
+    ivory: '#fffff0',
+    khaki: '#f0e68c',
+    lavender: '#e6e6fa',
+    lavenderblush: '#fff0f5',
+    lawngreen: '#7cfc00',
+    lemonchiffon: '#fffacd',
+    lightblue: '#add8e6',
+    lightcoral: '#f08080',
+    lightcyan: '#e0ffff',
+    lightgoldenrodyellow: '#fafad2',
+    lightgray: '#d3d3d3',
+    lightgreen: '#90ee90',
+    lightgrey: '#d3d3d3',
+    lightpink: '#ffb6c1',
+    lightsalmon: '#ffa07a',
+    lightseagreen: '#20b2aa',
+    lightskyblue: '#87cefa',
+    lightslategray: '#778899',
+    lightslategrey: '#778899',
+    lightsteelblue: '#b0c4de',
+    lightyellow: '#ffffe0',
+    lime: '#00ff00',
+    limegreen: '#32cd32',
+    linen: '#faf0e6',
+    magenta: '#ff00ff',
+    maroon: '#800000',
+    mediumaquamarine: '#66cdaa',
+    mediumblue: '#0000cd',
+    mediumorchid: '#ba55d3',
+    mediumpurple: '#9370db',
+    mediumseagreen: '#3cb371',
+    mediumslateblue: '#7b68ee',
+    mediumspringgreen: '#00fa9a',
+    mediumturquoise: '#48d1cc',
+    mediumvioletred: '#c71585',
+    midnightblue: '#191970',
+    mintcream: '#f5fffa',
+    mistyrose: '#ffe4e1',
+    moccasin: '#ffe4b5',
+    navajowhite: '#ffdead',
+    navy: '#000080',
+    oldlace: '#fdf5e6',
+    olive: '#808000',
+    olivedrab: '#6b8e23',
+    orange: '#ffa500',
+    orangered: '#ff4500',
+    orchid: '#da70d6',
+    palegoldenrod: '#eee8aa',
+    palegreen: '#98fb98',
+    paleturquoise: '#afeeee',
+    palevioletred: '#db7093',
+    papayawhip: '#ffefd5',
+    peachpuff: '#ffdab9',
+    peru: '#cd853f',
+    pink: '#ffc0cb',
+    plum: '#dda0dd',
+    powderblue: '#b0e0e6',
+    purple: '#800080',
+    rebeccapurple: '#663399',
+    red: '#ff0000',
+    rosybrown: '#bc8f8f',
+    royalblue: '#4169e1',
+    saddlebrown: '#8b4513',
+    salmon: '#fa8072',
+    sandybrown: '#f4a460',
+    seagreen: '#2e8b57',
+    seashell: '#fff5ee',
+    sienna: '#a0522d',
+    silver: '#c0c0c0',
+    skyblue: '#87ceeb',
+    slateblue: '#6a5acd',
+    slategray: '#708090',
+    slategrey: '#708090',
+    snow: '#fffafa',
+    springgreen: '#00ff7f',
+    steelblue: '#4682b4',
+    tan: '#d2b48c',
+    teal: '#008080',
+    thistle: '#d8bfd8',
+    tomato: '#ff6347',
+    turquoise: '#40e0d0',
+    violet: '#ee82ee',
+    wheat: '#f5deb3',
+    white: '#ffffff',
+    whitesmoke: '#f5f5f5',
+    yellow: '#ffff00',
+    yellowgreen: '#9acd32',
+};
+
+/**
+ * colorjs's toPrecision: round to (precision − integer-digit-count) decimal
+ * places, with the integer-digit count clamped to ≥ 0 — so values below 1 keep
+ * `precision` decimals rather than `precision` significant figures. Returned as
+ * a number, so `String()` drops any trailing zeros.
+ */
+function round(n, precision) {
+    if (n === 0) {
+        return 0;
+    }
+    const intDigits = Math.max(0, Math.floor(Math.log10(Math.abs(n))) + 1);
+    const mult = 10 ** Math.max(0, precision - intDigits);
+    return Math.round(n * mult) / mult;
+}
+const fmt = (n, p) => String(round(n, p));
+function hex(srgb, alpha) {
+    const h = (c) => Math.round(Math.min(1, Math.max(0, c)) * 255)
+        .toString(16)
+        .padStart(2, '0');
+    const base = `#${h(srgb[0])}${h(srgb[1])}${h(srgb[2])}`;
+    return alpha < 1 ? base + h(alpha) : base;
+}
+/**
+ * Serialise `coords` (in `space`, with `alpha`) to a CSS string. `format: 'hex'`
+ * expects sRGB coords and emits `#rrggbb`/`#rrggbbaa`.
+ */
+function serialize(coords, space, alpha = 1, opts = {}) {
+    if (opts.format === 'hex') {
+        return hex(coords, alpha);
+    }
+    const p = opts.precision ?? 5;
+    const f = (n) => fmt(n, p);
+    const a = alpha < 1 ? ` / ${f(alpha)}` : '';
+    const [x, y, z] = coords;
+    switch (space) {
+        case 'oklch':
+            return `oklch(${f(x * 100)}% ${f(y)} ${f(z)}${a})`;
+        case 'oklab':
+            return `oklab(${f(x * 100)}% ${f(y)} ${f(z)}${a})`;
+        case 'lch':
+            return `lch(${f(x)}% ${f(y)} ${f(z)}${a})`;
+        case 'lab':
+            return `lab(${f(x)}% ${f(y)} ${f(z)}${a})`;
+        case 'hsl':
+            return `hsl(${f(x)} ${f(y)}% ${f(z)}%${a})`;
+        case 'hwb':
+            return `hwb(${f(x)} ${f(y)}% ${f(z)}%${a})`;
+        case 'p3':
+            return `color(display-p3 ${f(x)} ${f(y)} ${f(z)}${a})`;
+        case 'rec2020':
+            return `color(rec2020 ${f(x)} ${f(y)} ${f(z)}${a})`;
+        case 'prophoto-rgb':
+            return `color(prophoto-rgb ${f(x)} ${f(y)} ${f(z)}${a})`;
+        case 'srgb':
+            return `color(srgb ${f(x)} ${f(y)} ${f(z)}${a})`;
+    }
+}
+
 // Dropdown order: everyday sRGB/CSS formats first, then perceptual, then
 // wide-gamut — familiar-first, matching Figma / DevTools conventions.
 const EDIT_MODES = [
@@ -9790,6 +7515,16 @@ const SRGB_BOUND_MODES = ['srgb', 'css', 'hsl', 'hwb', 'hex'];
 function showsGamutBoundary(mode) {
     return !SRGB_BOUND_MODES.includes(mode);
 }
+/** The gamut the colour area stretches to in a given mode — the mode's own:
+ *  sRGB for the sRGB-bound modes, P3 for P3, and Rec2020 for Rec2020 and the
+ *  (unbounded) perceptual modes, so OKLCH/OKLab/LCH/Lab can author the full wide
+ *  gamut. Every gamut narrower than this is drawn as an inner boundary line. */
+function areaStretch(mode) {
+    if (SRGB_BOUND_MODES.includes(mode)) {
+        return 'srgb';
+    }
+    return mode === 'p3' ? 'p3' : 'rec2020';
+}
 /** Hard cap on OKLCH chroma. Beyond any real display gamut (ProPhoto tops out
  *  near 0.49), so it rejects nonsense input (e.g. a typed chroma of 40000)
  *  without ever clipping a colour that could actually be shown. */
@@ -9807,7 +7542,7 @@ const MODE_LABELS = {
     p3: 'P3',
     rec2020: 'Rec2020',
 };
-/** colorjs.io space id backing an edit mode (hex + css share the sRGB space). */
+/** Colour-engine space id backing an edit mode (hex + css share the sRGB space). */
 function modeSpaceId(mode) {
     return mode === 'hex' || mode === 'css' ? 'srgb' : mode;
 }
@@ -9885,15 +7620,9 @@ function num(x) {
 function clamp(x, lo, hi) {
     return Math.min(hi, Math.max(lo, x));
 }
-/** Does colorjs accept this exact string as a colour? */
+/** Does the engine accept this exact string as a colour? */
 function parses(s) {
-    try {
-        getColor(parse(s));
-        return true;
-    }
-    catch {
-        return false;
-    }
+    return parse(s) !== null;
 }
 /** First embedded colour token (a hex literal or a colour function) in text. */
 const COLOR_TOKEN = /#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{4}|[0-9a-f]{3})\b|(?:rgba?|hsla?|hwb|(?:ok)?lab|(?:ok)?lch|color)\([^)]*\)/i;
@@ -9945,43 +7674,55 @@ class OklchColor {
     asEdited() {
         return new OklchColor([this.coords[0], this.coords[1], this.coords[2]], this.alpha, this.format, null);
     }
-    oklchObj(withAlpha = true) {
-        // Opaque colours use alpha 1 (not null): colorjs serialises a null alpha
-        // as `/ none` / hex `00`, which renders transparent. alpha 1 is omitted
-        // from the output by default, so this stays clean for opaque values.
-        return {
-            spaceId: 'oklch',
-            coords: [this.coords[0], this.coords[1], this.coords[2]],
-            alpha: withAlpha && this.format.hasAlpha ? this.alpha : 1,
-        };
+    /** Mutable copy of the canonical OKLCH coords (engine functions take a tuple). */
+    oklch() {
+        return [this.coords[0], this.coords[1], this.coords[2]];
+    }
+    /** Alpha to serialise: opaque colours (or formats without alpha) use 1, which
+     *  the serialiser omits — so the output stays clean. */
+    outAlpha(withAlpha = true) {
+        return withAlpha && this.format.hasAlpha ? this.alpha : 1;
+    }
+    /** Coords to serialise for output `space`: gamut-mapped for the bounded spaces
+     *  (RGB + HSL/HWB), matching how the old colorjs serialise mapped them; raw for
+     *  the unbounded perceptual spaces (OKLCH/OKLab/LCH/Lab). */
+    outputCoords(space) {
+        switch (space) {
+            case 'srgb':
+            case 'p3':
+            case 'rec2020':
+            case 'prophoto-rgb':
+                return toGamut(this.oklch(), space);
+            case 'hsl':
+            case 'hwb':
+                return convert(toGamut(this.oklch(), 'srgb'), 'srgb', space);
+            default:
+                return convert(this.oklch(), 'oklch', space);
+        }
     }
     // ---- Parsing ------------------------------------------------------------
     static fromString(css) {
         const trimmed = css.trim();
         // Clean input parses straight through (keeping its verbatim source format);
         // a messy paste is sanitised — `extractColorString` recovers the colour from
-        // a CSS declaration / quoted value / `!important`, or rethrows on nonsense.
+        // a CSS declaration / quoted value / `!important`, or we throw on nonsense.
         let source = trimmed;
-        let parsed;
-        try {
-            parsed = getColor(parse(trimmed));
-        }
-        catch (err) {
+        let parsed = parse(trimmed);
+        if (!parsed) {
             const cleaned = extractColorString(trimmed);
             if (cleaned === null) {
-                throw err;
+                throw new Error(`unparseable colour: ${css}`);
             }
             source = cleaned;
-            parsed = getColor(parse(cleaned));
+            parsed = parse(cleaned);
+            if (!parsed) {
+                throw new Error(`unparseable colour: ${css}`);
+            }
         }
-        const sid = parsed.space.id;
-        const k = sid === 'oklch' ? parsed : to(parsed, 'oklch');
-        const coords = [
-            num(k.coords[0]),
-            num(k.coords[1]),
-            num(k.coords[2]),
-        ];
-        const alpha = parsed.alpha == null ? 1 : num(parsed.alpha);
+        const sid = parsed.space;
+        const k = sid === 'oklch' ? parsed.coords : convert(parsed.coords, sid, 'oklch');
+        const coords = [num(k[0]), num(k[1]), num(k[2])];
+        const alpha = num(parsed.alpha);
         const isHex = source.startsWith('#');
         // Legacy comma syntax (`rgb(r, g, b)` / `rgba(r, g, b, a)`) is the CSS mode;
         // the modern space-separated `rgb(r g b)` stays plain RGB.
@@ -10018,27 +7759,27 @@ class OklchColor {
         }
         const f = this.format;
         if (f.isHex) {
-            // collapse:false keeps full-length hex (#ffffff, never #fff).
-            return serialize(to(this.oklchObj(), 'srgb', { inGamut: true }), {
+            // Always full-length hex (#ffffff, never #fff); 8 digits when alpha < 1.
+            return serialize(toGamut(this.oklch(), 'srgb'), 'srgb', this.outAlpha(), {
                 format: 'hex',
-                collapse: false,
             });
         }
         if (f.isCss) {
             // Legacy comma syntax, always 4-arg: `rgba(r, g, b, a)`.
-            const c = to(this.oklchObj(false), 'srgb', { inGamut: true });
-            const ch = (i) => Math.round(num(c.coords[i]) * 255);
+            const c = toGamut(this.oklch(), 'srgb');
+            const ch = (i) => Math.round(num(c[i]) * 255);
             return `rgba(${ch(0)}, ${ch(1)}, ${ch(2)}, ${+this.alpha.toFixed(2)})`;
         }
         if (f.spaceId === 'srgb') {
-            // colorjs only emits percentage rgb; build 0–255 integers (the form
-            // people expect) instead.
-            const c = to(this.oklchObj(false), 'srgb', { inGamut: true });
-            const ch = (i) => Math.round(num(c.coords[i]) * 255);
+            // 0–255 integer rgb() (the form people expect), space-separated.
+            const c = toGamut(this.oklch(), 'srgb');
+            const ch = (i) => Math.round(num(c[i]) * 255);
             const a = f.hasAlpha ? ` / ${+this.alpha.toFixed(3)}` : '';
             return `rgb(${ch(0)} ${ch(1)} ${ch(2)}${a})`;
         }
-        return serialize(to(this.oklchObj(), f.spaceId), { precision: 4 });
+        return serialize(this.outputCoords(f.spaceId), f.spaceId, this.outAlpha(), {
+            precision: 4,
+        });
     }
     /**
      * The collapsed-row string: the *same rounded channel values the open inputs
@@ -10100,23 +7841,22 @@ class OklchColor {
     }
     /** Full-gamut CSS (`oklch(…)`) for painting the swatch in modern browsers. */
     displayCss() {
-        return serialize(to(this.oklchObj(), 'oklch'));
+        return serialize(this.oklch(), 'oklch', this.outAlpha());
     }
     /** Gamut-mapped sRGB hex, for the swatch fallback / hex field. Always
-     *  full-length (`collapse:false` → `#ffffff`, never `#fff`). */
+     *  full-length (`#ffffff`, never `#fff`). */
     gamutCss() {
-        return serialize(to(this.oklchObj(), 'srgb', { inGamut: true }), {
+        return serialize(toGamut(this.oklch(), 'srgb'), 'srgb', this.outAlpha(), {
             format: 'hex',
-            collapse: false,
         });
     }
     // ---- Channel access -----------------------------------------------------
-    /** Canonical coords converted into `mode`'s colorjs space (NaN coalesced to 0). */
+    /** Canonical coords converted into `mode`'s space (NaN coalesced to 0). */
     coordsIn(mode) {
         const sid = modeSpaceId(mode);
-        const c = sid === 'oklch' ? this.oklchObj() : to(this.oklchObj(), sid);
+        const c = sid === 'oklch' ? this.oklch() : convert(this.oklch(), 'oklch', sid);
         return {
-            coords: [num(c.coords[0]), num(c.coords[1]), num(c.coords[2])],
+            coords: [num(c[0]), num(c[1]), num(c[2])],
             alpha: this.alpha,
         };
     }
@@ -10125,10 +7865,11 @@ class OklchColor {
         const { coords } = this.coordsIn(mode);
         return MODE_CHANNELS[mode].map((ch, i) => {
             const v = coords[i] * ch.scale;
-            // Snap float noise to 0 (so an achromatic/gamut-edge channel never shows as
-            // "-0.00"), then clamp to the channel's range — matching the numeric inputs'
-            // range constraint, so the inputs and the collapsed readout agree.
-            return clamp(Math.abs(v) < 1e-4 ? 0 : v, ch.min, ch.max);
+            // Snap to 0 anything that rounds to 0 at the channel's display precision
+            // (half the step), so a tiny negative never renders as "-0.00"/"-0", then
+            // clamp to the channel's range — matching the numeric inputs' range
+            // constraint, so the inputs and the collapsed readout agree.
+            return clamp(Math.abs(v) < 0.5 * ch.step ? 0 : v, ch.min, ch.max);
         });
     }
     /** New colour with channel `index` of `mode` set to `displayValue`. */
@@ -10137,8 +7878,8 @@ class OklchColor {
         const { coords, alpha } = this.coordsIn(mode);
         const next = [coords[0], coords[1], coords[2]];
         next[index] = displayValue / MODE_CHANNELS[mode][index].scale;
-        const k = to({ spaceId: sid, coords: next, alpha }, 'oklch');
-        return new OklchColor([num(k.coords[0]), num(k.coords[1]), num(k.coords[2])], alpha, this.format, null);
+        const k = convert(next, sid, 'oklch');
+        return new OklchColor([num(k[0]), num(k[1]), num(k[2])], alpha, this.format, null);
     }
     withAlpha(alpha) {
         return new OklchColor([this.coords[0], this.coords[1], this.coords[2]], alpha, { ...this.format, hasAlpha: true }, null);
@@ -10155,8 +7896,8 @@ class OklchColor {
         if (this.format.isCss) {
             return 'css';
         }
-        // EditMode values are colorjs space ids, so a known space maps straight to
-        // its mode; anything else (a98-rgb, xyz, …) falls back to OKLCH.
+        // EditMode values are engine space ids, so a known space maps straight to
+        // its mode; anything else (prophoto-rgb, …) falls back to OKLCH.
         const id = this.format.spaceId;
         return EDIT_MODES.includes(id) ? id : 'oklch';
     }
@@ -10167,10 +7908,13 @@ class OklchColor {
      * wide-RGB (P3 / Rec2020) modes keep the colour untouched.
      */
     withFormat(mode) {
+        // Switching into an sRGB-bound mode snaps a wider colour to the nearest
+        // in-sRGB one (so its channels stay meaningful); the area itself stays freely
+        // selectable, and the perceptual / wide-RGB modes keep the colour untouched.
         let coords = [this.coords[0], this.coords[1], this.coords[2]];
         if (SRGB_BOUND_MODES.includes(mode) && !this.inGamut('srgb')) {
-            const back = to(to(this.oklchObj(false), 'srgb', { inGamut: true }), 'oklch');
-            coords = [num(back.coords[0]), num(back.coords[1]), num(back.coords[2])];
+            const back = convert(toGamut(this.oklch(), 'srgb'), 'srgb', 'oklch');
+            coords = [num(back[0]), num(back[1]), num(back[2])];
         }
         return new OklchColor(coords, this.alpha, {
             spaceId: modeSpaceId(mode),
@@ -10189,16 +7933,35 @@ class OklchColor {
     }
     /** Adopt coords from an arbitrary CSS string (e.g. the area picker's onChange). */
     withCss(css) {
-        const k = to(getColor(parse(css)), 'oklch');
-        return new OklchColor([num(k.coords[0]), num(k.coords[1]), num(k.coords[2])], this.alpha, this.format, null);
+        const p = parse(css);
+        if (!p) {
+            return this;
+        }
+        const k = convert(p.coords, p.space, 'oklch');
+        return new OklchColor([num(k[0]), num(k[1]), num(k[2])], this.alpha, this.format, null);
     }
     // ---- Misc ---------------------------------------------------------------
     inGamut(gamut) {
-        return inGamut(to(this.oklchObj(false), gamut));
+        return inGamut(this.oklch(), 'oklch', gamut);
     }
     /** sRGB and P3 are the only gamuts with real consumer displays, so the readout
-     *  names those two and lumps anything beyond P3 as "wide". */
+     *  names those two and lumps anything beyond P3 as "wide".
+     *
+     *  In an sRGB-bound mode (RGB/HEX/CSS/HSL/HWB) the binding value is always a
+     *  gamut-mapped sRGB colour, so the readout is always sRGB — showing P3/wide
+     *  there would contradict the mode (the area can still be dragged into the wide
+     *  region, but the output clamps). In a wide mode it's the smallest containing
+     *  gamut, except in the degenerate near-black/near-white tips, where the chroma
+     *  is imperceptible and the displayed colour is ~black/white in every gamut —
+     *  reported as sRGB so the label doesn't churn as you drag the dark/light edges. */
     gamutLabel() {
+        if (!showsGamutBoundary(this.mode)) {
+            return 'sRGB';
+        }
+        const shown = toGamut(this.oklch(), 'srgb'); // colour as actually displayed
+        if (Math.max(...shown) < 0.03 || Math.min(...shown) > 0.97) {
+            return 'sRGB';
+        }
         if (this.inGamut('srgb')) {
             return 'sRGB';
         }
@@ -10222,411 +7985,454 @@ class OklchColor {
     }
 }
 
-const i=Symbol.for("preact-signals");function t(){if(e>1){e--;return}let i,t=!1;!function(){let i=r;r=void 0;while(void 0!==i){if(i.S.v===i.v)i.S.i=i.i;i=i.o;}}();while(void 0!==s){let n=s;s=void 0;u++;while(void 0!==n){const o=n.u;n.u=void 0;n.f&=-3;if(!(8&n.f)&&w(n))try{n.c();}catch(n){if(!t){i=n;t=!0;}}n=o;}}u=0;e--;if(t)throw i}let o,s;function h(i){const t=o;o=void 0;try{return i()}finally{o=t;}}let r,e=0,u=0,d=0,v=0;function l(i){if(void 0===o)return;let t=i.n;if(void 0===t||t.t!==o){t={i:0,S:i,p:o.s,n:void 0,t:o,e:void 0,x:void 0,r:t};if(void 0!==o.s)o.s.n=t;o.s=t;i.n=t;if(32&o.f)i.S(t);return t}else if(-1===t.i){t.i=0;if(void 0!==t.n){t.n.p=t.p;if(void 0!==t.p)t.p.n=t.n;t.p=o.s;t.n=void 0;o.s.n=t;o.s=t;}return t}}function y(i,t){this.v=i;this.i=0;this.n=void 0;this.t=void 0;this.l=0;this.W=null==t?void 0:t.watched;this.Z=null==t?void 0:t.unwatched;this.name=null==t?void 0:t.name;}y.prototype.brand=i;y.prototype.h=function(){return !0};y.prototype.S=function(i){const t=this.t;if(t!==i&&void 0===i.e){i.x=t;this.t=i;if(void 0!==t)t.e=i;else h(()=>{var i;null==(i=this.W)||i.call(this);});}};y.prototype.U=function(i){if(void 0!==this.t){const t=i.e,n=i.x;if(void 0!==t){t.x=n;i.e=void 0;}if(void 0!==n){n.e=t;i.x=void 0;}if(i===this.t){this.t=n;if(void 0===n)h(()=>{var i;null==(i=this.Z)||i.call(this);});}}};y.prototype.subscribe=function(i){return j(()=>{const t=this.value,n=o;o=void 0;try{i(t);}finally{o=n;}},{name:"sub"})};y.prototype.valueOf=function(){return this.value};y.prototype.toString=function(){return this.value+""};y.prototype.toJSON=function(){return this.value};y.prototype.peek=function(){return h(()=>this.value)};Object.defineProperty(y.prototype,"value",{get(){const i=l(this);if(void 0!==i)i.i=this.i;return this.v},set(i){if(i!==this.v){if(u>100)throw new Error("Cycle detected");!function(i){if(0!==e&&0===u)if(i.l!==d){i.l=d;r={S:i,v:i.v,i:i.i,o:r};}}(this);this.v=i;this.i++;v++;e++;try{for(let i=this.t;void 0!==i;i=i.x)i.t.N();}finally{t();}}}});function a(i,t){return new y(i,t)}function w(i){for(let t=i.s;void 0!==t;t=t.n)if(t.S.i!==t.i||!t.S.h()||t.S.i!==t.i)return !0;return !1}function _(i){for(let t=i.s;void 0!==t;t=t.n){const n=t.S.n;if(void 0!==n)t.r=n;t.S.n=t;t.i=-1;if(void 0===t.n){i.s=t;break}}}function b(i){let t,n=i.s;while(void 0!==n){const i=n.p;if(-1===n.i){n.S.U(n);if(void 0!==i)i.n=n.n;if(void 0!==n.n)n.n.p=i;}else t=n;n.S.n=n.r;if(void 0!==n.r)n.r=void 0;n=i;}i.s=t;}function p(i,t){y.call(this,void 0);this.x=i;this.s=void 0;this.g=v-1;this.f=4;this.W=null==t?void 0:t.watched;this.Z=null==t?void 0:t.unwatched;this.name=null==t?void 0:t.name;}p.prototype=new y;p.prototype.h=function(){this.f&=-3;if(1&this.f)return !1;if(32==(36&this.f))return !0;this.f&=-5;if(this.g===v)return !0;this.g=v;this.f|=1;if(this.i>0&&!w(this)){this.f&=-2;return !0}const i=o;try{_(this);o=this;const i=this.x();if(16&this.f||this.v!==i||0===this.i){this.v=i;this.f&=-17;this.i++;}}catch(i){this.v=i;this.f|=16;this.i++;}o=i;b(this);this.f&=-2;return !0};p.prototype.S=function(i){if(void 0===this.t){this.f|=36;for(let i=this.s;void 0!==i;i=i.n)i.S.S(i);}y.prototype.S.call(this,i);};p.prototype.U=function(i){if(void 0!==this.t){y.prototype.U.call(this,i);if(void 0===this.t){this.f&=-33;for(let i=this.s;void 0!==i;i=i.n)i.S.U(i);}}};p.prototype.N=function(){if(!(2&this.f)){this.f|=6;for(let i=this.t;void 0!==i;i=i.x)i.t.N();}};Object.defineProperty(p.prototype,"value",{get(){if(1&this.f)throw new Error("Cycle detected");const i=l(this);this.h();if(void 0!==i)i.i=this.i;if(16&this.f)throw this.v;return this.v}});function g(i,t){return new p(i,t)}function S(i){const n=i.m;i.m=void 0;if("function"==typeof n){e++;const s=o;o=void 0;try{n();}catch(t){i.f&=-2;i.f|=8;m(i);throw t}finally{o=s;t();}}}function m(i){for(let t=i.s;void 0!==t;t=t.n)t.S.U(t);i.x=void 0;i.s=void 0;S(i);}function x(i){if(o!==this)throw new Error("Out-of-order effect");b(this);o=i;this.f&=-2;if(8&this.f)m(this);t();}function E(i,t){this.x=i;this.m=void 0;this.s=void 0;this.u=void 0;this.f=32;this.name=null==t?void 0:t.name;}E.prototype.c=function(){const i=this.S();try{if(8&this.f)return;if(void 0===this.x)return;const t=this.x();if("function"==typeof t)this.m=t;}finally{i();}};E.prototype.S=function(){if(1&this.f)throw new Error("Cycle detected");this.f|=1;this.f&=-9;S(this);_(this);e++;const i=o;o=this;return x.bind(this,i)};E.prototype.N=function(){if(!(2&this.f)){this.f|=2;this.u=s;s=this;}};E.prototype.d=function(){this.f|=8;if(!(1&this.f))m(this);};E.prototype.dispose=function(){this.d();};function j(i,t){const n=new E(i,t);try{n.c();}catch(i){n.d();throw i}const o=n.d.bind(n);o[Symbol.dispose]=o;return o}
-
-/*
- * OKLCH lightness×chroma plane compute — adapted from Adam Argyle's color-input
- * (MIT) https://github.com/argyleink/css-color-component
- *
- * Pure and synchronous: given a fixed hue and a canvas size, produce the
- * gradient pixels plus the gamut-boundary polylines. Lightness is the y axis
- * (top = 1) and chroma the x axis, stretched per-lightness so the P3 gamut fills
- * the canvas width. The original ran this in a Web Worker across many colour
- * spaces; locked to OKLCH it runs on the main thread, so it bundles via Rollup.
- */
-/** Chroma the binary search never exceeds (past every real display gamut). */
-const CHROMA_MAX = 0.5;
-/** Gamut whose per-lightness max chroma is stretched to the canvas width. */
-const STRETCH_GAMUT = 'p3';
-/** Gradient is computed at 1/4 of the backing resolution, then scaled up. */
-const PIXEL_DIVISOR = 4;
-/** Boundary curves drawn over the plane, widest → narrowest. The stretch gamut
- *  (P3) is the canvas edge itself, so it is not in this list. */
-const GAMUTS = [
-    { space: 'prophoto-rgb', color: 'rgba(255,255,255,0.3)', width: 0.75, dash: [2, 3] },
-    { space: 'rec2020', color: 'rgba(255,255,255,0.4)', width: 1, dash: [3, 3] },
+/** Gradient is rasterised at 1/4 of the backing resolution, then scaled up. */
+const SUBSAMPLE = 4;
+/** Upper bound for the chroma bisection — beyond every physical display gamut. */
+const CHROMA_CEILING = 0.5;
+/** Bisection steps: 16 ⇒ ~0.5/2¹⁶ ≈ 8e-6 chroma resolution. */
+const BISECT_STEPS = 16;
+/** Samples in the per-lightness chroma curve handed back for thumb placement. */
+const CURVE_SAMPLES = 128;
+/** Gamut nesting by chroma extent, narrow → wide. The plane's stretch gamut is
+ *  the canvas edge; only gamuts strictly narrower than it are drawn as lines. */
+const GAMUT_RANK = {
+    srgb: 0,
+    p3: 1,
+    rec2020: 2,
+    'prophoto-rgb': 3,
+    // non-RGB spaces never act as a plane gamut; rank them past the widest.
+    hsl: 9,
+    hwb: 9,
+    lab: 9,
+    lch: 9,
+    oklab: 9,
+    oklch: 9,
+};
+/** Boundary lines available to stroke over the plane, narrow → wide. The
+ *  brighter/solid sRGB line and the fainter dashed P3 line appear whenever the
+ *  plane is stretched wider than them. (No mode stretches past Rec2020, so
+ *  Rec2020 is only ever the edge, never an inner line.) */
+const BOUNDARIES = [
     { space: 'srgb', color: 'rgba(255,255,255,0.7)', width: 1.5, dash: [] },
+    { space: 'p3', color: 'rgba(255,255,255,0.4)', width: 1, dash: [3, 3] },
 ];
-/** Linearly interpolate a LUT at normalised position `t` ∈ [0,1]. */
-function lerpLUT(lut, t) {
-    const n = lut.length - 1;
-    const i = Math.max(0, Math.min(n, t * n));
-    const lo = Math.floor(i);
-    const hi = Math.min(lo + 1, n);
-    const f = i - lo;
-    return lut[lo] * (1 - f) + lut[hi] * f;
-}
-/** Is OKLCH (`L`, `C`, `hue`) inside `gamut`? */
-function inOklchGamut(L, C, hue, gamut) {
-    const c = to({ spaceId: 'oklch', coords: [L, C, hue], alpha: 1 }, gamut);
-    return inGamut({ spaceId: gamut, coords: c.coords, alpha: null });
-}
-/** Max in-`gamut` chroma at each of `size` lightness samples (L 0→1), binary-searched. */
-function computeChromaLUT(hue, gamut, size) {
-    const lut = new Float64Array(size);
-    for (let i = 0; i < size; i++) {
-        const L = i / (size - 1);
-        if (!inOklchGamut(L, 0, hue, gamut)) {
-            lut[i] = 0;
-            continue;
-        }
-        let lo = 0;
-        let hi = CHROMA_MAX;
-        for (let j = 0; j < 16; j++) {
-            const mid = (lo + hi) / 2;
-            if (inOklchGamut(L, mid, hue, gamut))
-                lo = mid;
-            else
-                hi = mid;
-        }
-        lut[i] = lo;
+/**
+ * Largest chroma that keeps OKLCH(`L`, ·, `hue`) inside `gamut`, by bisection.
+ * Returns 0 when the gamut doesn't even contain the achromatic point at this
+ * lightness (so the row contributes nothing).
+ */
+function maxChroma(L, hue, gamut, ceiling = CHROMA_CEILING) {
+    if (!inGamut([L, 0, hue], 'oklch', gamut)) {
+        return 0;
     }
-    return lut;
-}
-/** Quarter-res gradient pixels: x = chroma fraction, y = lightness (top = 1). */
-function computePixels(hue, W, H, target, chromaLUT) {
-    const px = new Uint8ClampedArray(W * H * 4);
-    for (let y = 0; y < H; y++) {
-        const L = 1 - y / (H - 1);
-        const maxC = lerpLUT(chromaLUT, L);
-        for (let x = 0; x < W; x++) {
-            const C = (x / (W - 1)) * maxC;
-            const [r, g, b] = to({ spaceId: 'oklch', coords: [L, C, hue], alpha: null }, target)
-                .coords;
-            const i = (y * W + x) * 4;
-            px[i] = Math.round(Math.max(0, Math.min(1, r ?? 0)) * 255);
-            px[i + 1] = Math.round(Math.max(0, Math.min(1, g ?? 0)) * 255);
-            px[i + 2] = Math.round(Math.max(0, Math.min(1, b ?? 0)) * 255);
-            px[i + 3] = 255;
+    let inside = 0;
+    let outside = ceiling;
+    for (let i = 0; i < BISECT_STEPS; i++) {
+        const mid = (inside + outside) / 2;
+        if (inGamut([L, mid, hue], 'oklch', gamut)) {
+            inside = mid;
+        }
+        else {
+            outside = mid;
         }
     }
-    return px;
+    return inside;
 }
-/** For each gamut, the L→chroma boundary as canvas points (chroma normalised to
- *  the stretched P3 width, so curves wider than P3 sit at the right edge). */
-function computeBoundaries(hue, W, H, dpr, chromaLUT) {
-    const ROWS = 100;
-    const out = [];
-    for (const g of GAMUTS) {
-        const points = [];
-        try {
-            for (let row = 0; row <= ROWS; row++) {
-                const L = row / ROWS;
-                if (!inOklchGamut(L, 0, hue, g.space))
-                    continue;
-                const maxOuter = lerpLUT(chromaLUT, L);
-                if (maxOuter <= 0)
-                    continue;
-                let lo = 0;
-                let hi = maxOuter;
-                for (let i = 0; i < 10; i++) {
-                    const mid = (lo + hi) / 2;
-                    if (inOklchGamut(L, mid, hue, g.space))
-                        lo = mid;
-                    else
-                        hi = mid;
-                }
-                points.push({ x: (lo / maxOuter) * W, y: (1 - L) * H });
-            }
-            out.push({
-                points,
-                color: g.color,
-                lineWidth: g.width * dpr,
-                dash: g.dash.map((d) => d * dpr),
-            });
+/** Sample an evenly-spaced [0,1]-indexed curve at `t`, linearly interpolated. */
+function sampleCurve(curve, t) {
+    const last = curve.length - 1;
+    const pos = Math.max(0, Math.min(last, t * last));
+    const i = Math.floor(pos);
+    const frac = pos - i;
+    return curve[i] * (1 - frac) + curve[Math.min(i + 1, last)] * frac;
+}
+const toByte = (v) => Math.round(Math.max(0, Math.min(1, v ?? 0)) * 255);
+/** Trace one gamut's boundary as canvas points, x normalised to the stretch edge. */
+function traceBoundary(spec, hue, stretch, W, H, dpr) {
+    const STEPS = 100;
+    const points = [];
+    for (let s = 0; s <= STEPS; s++) {
+        const L = s / STEPS;
+        const edge = sampleCurve(stretch, L);
+        if (edge <= 0) {
+            continue; // empty row — no chroma range to plot against
         }
-        catch {
-            /* skip a gamut colorjs can't convert to */
+        // Search within the stretch edge: a narrower gamut (sRGB inside P3, or sRGB
+        // and P3 inside Rec2020) lands inside it. Tying the search to `edge` keeps
+        // the ratio ordered and bounded even at the near-black/near-white extremes,
+        // where `edge` itself is tiny and an independent search is noisy.
+        const c = maxChroma(L, hue, spec.space, edge);
+        if (c <= 0) {
+            continue; // gamut empty at this lightness
         }
+        points.push({ x: (c / edge) * W, y: (1 - L) * H });
     }
-    return out;
+    return {
+        points,
+        color: spec.color,
+        lineWidth: spec.width * dpr,
+        dash: spec.dash.map((d) => d * dpr),
+    };
 }
-/** Compute the plane: quarter-res gradient pixels + full-res boundary lines. */
+/** Compute the plane: subsampled gradient pixels + full-res boundary lines. */
 function computeArea(req) {
     const backingW = Math.round(req.cssW * req.dpr);
     const backingH = Math.round(req.cssH * req.dpr);
-    const W = Math.round(backingW / PIXEL_DIVISOR);
-    const H = Math.round(backingH / PIXEL_DIVISOR);
+    const W = Math.round(backingW / SUBSAMPLE);
+    const H = Math.round(backingH / SUBSAMPLE);
     const target = req.supportsP3 ? 'p3' : 'srgb';
-    const chromaLUT = computeChromaLUT(req.hue, STRETCH_GAMUT, 128);
-    const pixels = computePixels(req.hue, W, H, target, chromaLUT);
-    const boundaries = computeBoundaries(req.hue, backingW, backingH, req.dpr, chromaLUT);
-    return { pixels: pixels.buffer, W, H, backingW, backingH, chromaLUT, boundaries };
+    // Stretch reference: the chroma ceiling of `req.stretch` at each lightness.
+    // Drives both the gradient's per-row width and the boundary x-normalisation —
+    // so in an sRGB stretch the whole plane is exactly the sRGB gamut.
+    const stretch = new Float64Array(CURVE_SAMPLES);
+    for (let i = 0; i < CURVE_SAMPLES; i++) {
+        stretch[i] = maxChroma(i / (CURVE_SAMPLES - 1), req.hue, req.stretch);
+    }
+    // Rasterise the gradient: column x maps to chroma (x/W of the row's stretch
+    // max), row y maps to lightness (top = 1).
+    const pixels = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++) {
+        const L = 1 - y / (H - 1);
+        const rowMax = sampleCurve(stretch, L);
+        for (let x = 0; x < W; x++) {
+            const chroma = (x / (W - 1)) * rowMax;
+            const [r, g, b] = convert([L, chroma, req.hue], 'oklch', target);
+            const o = (y * W + x) * 4;
+            pixels[o] = toByte(r);
+            pixels[o + 1] = toByte(g);
+            pixels[o + 2] = toByte(b);
+            pixels[o + 3] = 255;
+        }
+    }
+    // Draw a line for each gamut strictly narrower than the stretch: sRGB only on
+    // a P3 plane; sRGB + P3 on a Rec2020 plane; nothing on an sRGB plane.
+    const boundaries = BOUNDARIES.filter((spec) => GAMUT_RANK[spec.space] < GAMUT_RANK[req.stretch]).map((spec) => traceBoundary(spec, req.hue, stretch, backingW, backingH, req.dpr));
+    return {
+        pixels: pixels.buffer,
+        W,
+        H,
+        backingW,
+        backingH,
+        chromaCurve: stretch,
+        boundaries,
+    };
 }
 
 /*
- * OKLCH colour-area picker — adapted from Adam Argyle's color-input (MIT)
- * https://github.com/argyleink/css-color-component
+ * Interactive OKLCH lightness×chroma plane: a canvas gradient with the gamut
+ * boundary drawn over it, a draggable thumb, and keyboard nudging. The plane is
+ * always a fixed-hue L×C slice (see ./area-compute for the raster); this file is
+ * purely the DOM/interaction layer.
  *
- * Renders the OKLCH lightness×chroma plane at a fixed hue (with the sRGB/P3
- * gamut boundary) and handles pointer + keyboard editing. The chroma axis is
- * stretched so P3 fills the width — see ./area-compute for the maths. The
- * original drove a Web Worker across many colour spaces; this is the single
- * OKLCH path, computed synchronously on the main thread so it bundles via Rollup.
+ * State is two plain coord triples — `#value` (committed) and `#live` (the
+ * optimistic value mid-drag, so the thumb tracks the pointer without waiting for
+ * the binding round-trip) — and `#sync()` reapplies the three effects (thumb,
+ * drag class, repaint) after any change. The repaint is rAF-coalesced and only
+ * runs when the hue moves, so dragging within a slice never re-rasterises.
  */
-/** Canvas chroma extent before the gamut LUT is ready (nominal OKLCH max). */
-const NOMINAL_MAX_CHROMA = 0.37;
-/** Detect wide-gamut canvas support by probing the actual API. */
-const supportsP3Canvas = (() => {
+/** Chroma span assumed for the canvas before the first frame builds the curve. */
+const FALLBACK_CHROMA = 0.37;
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const finite = (v) => v == null || Number.isNaN(v) ? 0 : v;
+/** Whether a 2D canvas can be backed by Display-P3 (probe the real API). */
+const wideCanvas = (() => {
     try {
-        const c = document.createElement('canvas');
-        c.width = c.height = 1;
-        const ctx = c.getContext('2d', { colorSpace: 'display-p3' });
-        return (ctx
-            ?.getContextAttributes?.()
-            ?.colorSpace === 'display-p3');
+        const ctx = document
+            .createElement('canvas')
+            .getContext('2d', { colorSpace: 'display-p3' });
+        const attrs = ctx?.getContextAttributes?.();
+        return attrs?.colorSpace === 'display-p3';
     }
     catch {
         return false;
     }
 })();
-const n = (x) => x == null || Number.isNaN(x) ? 0 : x;
-function drawBoundary(ctx, b) {
+function strokeBoundary(ctx, b) {
     if (b.points.length < 2) {
         return;
     }
     ctx.save();
     ctx.strokeStyle = b.color;
     ctx.lineWidth = b.lineWidth;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
+    ctx.lineJoin = ctx.lineCap = 'round';
     ctx.setLineDash(b.dash);
     ctx.beginPath();
-    ctx.moveTo(b.points[0].x, b.points[0].y);
-    for (let i = 1; i < b.points.length; i++) {
-        ctx.lineTo(b.points[i].x, b.points[i].y);
-    }
+    b.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.stroke();
     ctx.restore();
 }
-/** OKLCH colour-area picker over a fixed-hue lightness×chroma plane. */
+/** Interactive OKLCH L×C plane bound to a host element + an onChange callback. */
 class AreaPicker {
-    #controller = new AbortController();
-    #area;
-    // Working colour as OKLCH [L, C, H]. `#dragging` mirrors it during a drag so
-    // the thumb tracks the pointer without round-tripping through the binding.
-    #color = a(null);
-    #dragging = a(null);
-    #chromaLUT = a(null);
-    // When false, the gamut-boundary curves are hidden (sRGB-bound edit modes).
-    #showBoundary = a(true);
-    constructor(element, onChange) {
-        this.#area = element;
-        const canvas = element?.querySelector('.area-canvas');
-        if (!element || !canvas) {
+    #abort = new AbortController();
+    #root;
+    #canvas;
+    #emit;
+    #value = null; // committed colour
+    #live = null; // optimistic colour while dragging
+    #curve = null; // per-lightness chroma ceiling (last frame)
+    // The gamut the plane is stretched to (the current mode's own gamut). Drives
+    // the gradient extent and which narrower gamuts are drawn as boundary lines.
+    #stretch = 'p3';
+    #paintedHue = NaN; // hue of the last raster; -repaint only when it changes
+    #raf = null;
+    // Pointer grab offset (thumb-centre → cursor), in normalised plane units.
+    #grab = { x: 0, y: 0 };
+    constructor(root, onChange) {
+        this.#root = root;
+        this.#canvas =
+            root?.querySelector('.area-canvas') ?? null;
+        this.#emit = onChange;
+        if (!root || !this.#canvas) {
             return;
         }
-        /** Emit the edited colour as an `oklch()` string for the binding to adopt. */
-        const emit = (c, isDragging) => {
-            onChange(`oklch(${n(c[0])} ${n(c[1])} ${n(c[2])})`, isDragging);
-        };
-        // ── Pointer editing: chroma = x, lightness = y ─────────────────────────
-        const thumb = element.querySelector('.area-thumb');
-        let offset = { x: 0, y: 0 };
-        let rect = null;
-        const fromPointer = (event) => {
-            const base = this.#dragging.value ?? this.#color.value;
-            if (!base) {
-                return;
+        this.#bindPointer(root);
+        this.#bindKeyboard(root);
+        this.#abort.signal.addEventListener('abort', () => {
+            if (this.#raf !== null) {
+                cancelAnimationFrame(this.#raf);
             }
-            const lut = this.#chromaLUT.value;
-            const r = rect ?? element.getBoundingClientRect();
-            const x = Math.max(0, Math.min(1, (event.clientX - r.left) / r.width - offset.x));
-            const y = Math.max(0, Math.min(1, 1 - (event.clientY - r.top) / r.height - offset.y));
-            const maxC = lut ? lerpLUT(lut, y) : NOMINAL_MAX_CHROMA;
-            const next = [y, x * maxC, base[2]];
-            this.#dragging.value = next;
-            emit(next, true);
-        };
-        element.addEventListener('pointerdown', (event) => {
-            element.setPointerCapture(event.pointerId);
-            rect = element.getBoundingClientRect();
-            if (thumb && (event.target === thumb || thumb.contains(event.target))) {
-                // Grab the thumb: remember the cursor→centre offset so it doesn't jump.
-                const tr = thumb.getBoundingClientRect();
-                const tcx = (tr.left + tr.width / 2 - rect.left) / rect.width;
-                const tcy = 1 - (tr.top + tr.height / 2 - rect.top) / rect.height;
-                offset = {
-                    x: (event.clientX - rect.left) / rect.width - tcx,
-                    y: 1 - (event.clientY - rect.top) / rect.height - tcy,
-                };
-                const base = this.#dragging.value ?? this.#color.value;
-                if (base) {
-                    this.#dragging.value = [base[0], base[1], base[2]];
-                }
-            }
-            else {
-                // Click on the canvas: jump the thumb to the cursor.
-                offset = { x: 0, y: 0 };
-                fromPointer(event);
-            }
-        }, { signal: this.#controller.signal });
-        element.addEventListener('pointermove', (event) => {
-            if (this.#dragging.value) {
-                event.preventDefault();
-                fromPointer(event);
-            }
-        }, { signal: this.#controller.signal });
-        element.addEventListener('pointerup', (event) => {
-            element.releasePointerCapture(event.pointerId);
-            const final = this.#dragging.value;
-            if (final) {
-                emit(final, false); // non-dragging change so the text inputs commit
-            }
-            this.#dragging.value = null;
-            offset = { x: 0, y: 0 };
-            rect = null;
-        }, { signal: this.#controller.signal });
-        element.addEventListener('pointercancel', () => {
-            this.#dragging.value = null;
-            offset = { x: 0, y: 0 };
-            rect = null;
-        }, { signal: this.#controller.signal });
-        // ── Keyboard editing: arrows step chroma / lightness ───────────────────
-        element.addEventListener('keydown', (event) => {
-            const base = this.#color.value;
-            if (!base) {
-                return;
-            }
-            let dx = 0;
-            let dy = 0;
-            switch (event.key) {
-                case 'ArrowRight':
-                    dx = 1;
-                    break;
-                case 'ArrowLeft':
-                    dx = -1;
-                    break;
-                case 'ArrowUp':
-                    dy = 1;
-                    break;
-                case 'ArrowDown':
-                    dy = -1;
-                    break;
-                default:
-                    return;
-            }
-            event.preventDefault();
-            const [L, C, H] = base;
-            const lut = this.#chromaLUT.value;
-            const maxC = lut ? lerpLUT(lut, L) : NOMINAL_MAX_CHROMA;
-            const nextC = Math.max(0, Math.min(maxC, C + dx * (maxC / 100)));
-            const nextL = Math.max(0, Math.min(1, L + dy / 100));
-            emit([nextL, nextC, H], false);
-        }, { signal: this.#controller.signal });
-        // ── Thumb position (mirrors the chroma stretch) ────────────────────────
-        const cleanupThumb = j(() => {
-            const c = this.#dragging.value ?? this.#color.value;
-            if (!c) {
-                return;
-            }
-            const lut = this.#chromaLUT.value;
-            const maxC = lut ? lerpLUT(lut, c[0]) : NOMINAL_MAX_CHROMA;
-            const x = maxC > 0 ? Math.min(100, (c[1] / maxC) * 100) : 0;
-            this.#area?.style.setProperty('--thumb-x', `${x}%`);
-            this.#area?.style.setProperty('--thumb-y', `${(1 - c[0]) * 100}%`);
-        });
-        // ── Dragging state (matches the native palette: dim the rest of the UI) ─
-        const cleanupDrag = j(() => {
-            const isDragging = this.#dragging.value != null;
-            element.classList.toggle('dragging', isDragging);
-            document.body.inert = isDragging;
-        });
-        // ── Render: one paint per frame when the hue or boundary toggles ───────
-        const hue = g(() => (this.#dragging.value ?? this.#color.value)?.[2] ?? 0);
-        let frame = null;
-        let pendingHue = null;
-        const cleanupRender = j(() => {
-            pendingHue = hue.value;
-            void this.#showBoundary.value; // re-render when the boundary is toggled
-            if (frame !== null) {
-                return;
-            }
-            frame = requestAnimationFrame(() => {
-                frame = null;
-                const renderHue = pendingHue ?? 0;
-                pendingHue = null;
-                if (!this.#color.value) {
-                    return;
-                }
-                const colorSpace = supportsP3Canvas
-                    ? 'display-p3'
-                    : 'srgb';
-                let res;
-                try {
-                    res = computeArea({
-                        hue: renderHue,
-                        cssW: canvas.clientWidth || 320,
-                        cssH: canvas.clientHeight || 200,
-                        dpr: window.devicePixelRatio || 1,
-                        supportsP3: supportsP3Canvas,
-                    });
-                }
-                catch {
-                    return; // a bad compute frame must not throw uncaught out of rAF
-                }
-                this.#chromaLUT.value = res.chromaLUT;
-                // Paint the low-res gradient offscreen, then scale it up smoothly.
-                const off = document.createElement('canvas');
-                off.width = res.W;
-                off.height = res.H;
-                const offCtx = off.getContext('2d', { colorSpace });
-                if (!offCtx) {
-                    return;
-                }
-                const img = offCtx.createImageData(res.W, res.H);
-                img.data.set(new Uint8ClampedArray(res.pixels));
-                offCtx.putImageData(img, 0, 0);
-                canvas.width = res.backingW;
-                canvas.height = res.backingH;
-                const ctx = canvas.getContext('2d', { colorSpace });
-                if (!ctx) {
-                    return;
-                }
-                ctx.imageSmoothingEnabled = true;
-                ctx.drawImage(off, 0, 0, res.backingW, res.backingH);
-                if (this.#showBoundary.value) {
-                    for (const b of res.boundaries) {
-                        drawBoundary(ctx, b);
-                    }
-                }
-            });
-        });
-        this.#controller.signal.addEventListener('abort', () => {
-            cleanupThumb();
-            cleanupDrag();
-            cleanupRender();
-            if (frame !== null) {
-                cancelAnimationFrame(frame);
-            }
-            // Don't leave the page inert if disposed mid-drag.
-            document.body.inert = false;
         });
     }
-    setShowBoundary(value) {
-        this.#showBoundary.value = value;
-    }
-    /** Adopt a new colour from any CSS string (converted to the OKLCH plane). */
+    // ── Public API ───────────────────────────────────────────────────────────
+    /** Adopt a colour from any CSS string, projected onto the OKLCH plane. */
     setValue(css) {
-        try {
-            const c = to(css, 'oklch');
-            this.#color.value = [n(c.coords[0]), n(c.coords[1]), n(c.coords[2])];
-        }
-        catch {
-            this.#color.value = null;
+        const parsed = parse(css);
+        this.#value = parsed
+            ? convert(parsed.coords, parsed.space, 'oklch').map(finite)
+            : null;
+        this.#sync();
+    }
+    /** Stretch the plane to `gamut` (the current mode's gamut). The gradient extent
+     *  and the inner boundary lines both follow from it. */
+    setStretch(gamut) {
+        if (gamut !== this.#stretch) {
+            this.#stretch = gamut;
+            this.#schedulePaint(); // the gradient stretch + boundaries change with it
         }
     }
     unmount() {
-        this.#controller.abort();
+        this.#abort.abort();
+    }
+    // ── State plumbing ─────────────────────────────────────────────────────────
+    /** The colour the UI should reflect: the drag value if dragging, else committed. */
+    #active() {
+        return this.#live ?? this.#value;
+    }
+    /** Largest chroma reachable at lightness `L` on the current canvas. */
+    #chromaAt(L) {
+        return this.#curve ? sampleCurve(this.#curve, L) : FALLBACK_CHROMA;
+    }
+    /** Push a new colour: store it, tell the binding, refresh the UI. */
+    #commit(coords, dragging) {
+        if (dragging) {
+            this.#live = coords;
+        }
+        this.#emit(`oklch(${finite(coords[0])} ${finite(coords[1])} ${finite(coords[2])})`, dragging);
+        this.#sync();
+    }
+    /** Reapply every reaction to the active colour. Cheap and idempotent. */
+    #sync() {
+        this.#positionThumb();
+        // Pointer capture (set on pointerdown) already routes the whole drag to the
+        // canvas, and `touch-action: none` blocks touch-scroll — so the drag is
+        // isolated without inert-ing the page (which would blur the focused mode
+        // dropdown mid-gesture and swallow the first click after a mode switch).
+        this.#root?.classList.toggle('dragging', this.#live != null);
+        // The gradient only depends on hue; skip the repaint within a slice.
+        if ((this.#active()?.[2] ?? 0) !== this.#paintedHue) {
+            this.#schedulePaint();
+        }
+    }
+    #positionThumb() {
+        const c = this.#active();
+        if (!c) {
+            return;
+        }
+        const ceiling = this.#chromaAt(c[0]);
+        const x = ceiling > 0 ? Math.min(100, (c[1] / ceiling) * 100) : 0;
+        this.#root?.style.setProperty('--thumb-x', `${x}%`);
+        this.#root?.style.setProperty('--thumb-y', `${(1 - c[0]) * 100}%`);
+    }
+    // ── Pointer + keyboard ─────────────────────────────────────────────────────
+    #bindPointer(root) {
+        const thumb = root.querySelector('.area-thumb');
+        const opts = { signal: this.#abort.signal };
+        let rect = null;
+        let activeId = null;
+        // Map a pointer event to OKLCH coords on the plane (x → chroma, y → L).
+        // `clamp01` pins it to the plane, so dragging outside lands on the edge.
+        const project = (e) => {
+            const base = this.#active();
+            if (!base) {
+                return null;
+            }
+            const r = rect ?? root.getBoundingClientRect();
+            const fx = clamp01((e.clientX - r.left) / r.width - this.#grab.x);
+            const fy = clamp01(1 - (e.clientY - r.top) / r.height - this.#grab.y);
+            return [fy, fx * this.#chromaAt(fy), base[2]];
+        };
+        // Move/up live on the window for the duration of a drag (not just the
+        // canvas), so the thumb keeps tracking — clamped to the edge — even when the
+        // pointer is dragged outside the area. Guarded by the originating pointer id.
+        const onMove = (e) => {
+            if (e.pointerId !== activeId || !this.#live) {
+                return;
+            }
+            e.preventDefault();
+            const next = project(e);
+            if (next) {
+                this.#commit(next, true);
+            }
+        };
+        const onUp = (e) => {
+            if (e.pointerId !== activeId) {
+                return;
+            }
+            activeId = null;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onUp);
+            try {
+                root.releasePointerCapture(e.pointerId);
+            }
+            catch {
+                /* never captured — nothing to release */
+            }
+            if (this.#live) {
+                // Commit the final value as a non-drag change so text inputs settle.
+                this.#emit(`oklch(${finite(this.#live[0])} ${finite(this.#live[1])} ${finite(this.#live[2])})`, false);
+            }
+            this.#live = null;
+            this.#grab = { x: 0, y: 0 };
+            rect = null;
+            this.#sync();
+        };
+        root.addEventListener('pointerdown', (e) => {
+            activeId = e.pointerId;
+            // Capture is a bonus (stops other elements reacting mid-drag); the
+            // window listeners are what guarantee delivery once the pointer leaves.
+            try {
+                root.setPointerCapture(e.pointerId);
+            }
+            catch {
+                /* ignore — window listeners cover delivery */
+            }
+            rect = root.getBoundingClientRect();
+            const onThumb = thumb && (e.target === thumb || thumb.contains(e.target));
+            if (onThumb) {
+                // Grab: record cursor→thumb-centre offset so the thumb doesn't jump.
+                const t = thumb.getBoundingClientRect();
+                const cx = (t.left + t.width / 2 - rect.left) / rect.width;
+                const cy = 1 - (t.top + t.height / 2 - rect.top) / rect.height;
+                this.#grab = {
+                    x: (e.clientX - rect.left) / rect.width - cx,
+                    y: 1 - (e.clientY - rect.top) / rect.height - cy,
+                };
+                const base = this.#active();
+                if (base) {
+                    this.#commit([base[0], base[1], base[2]], true);
+                }
+            }
+            else {
+                // Bare click: jump to the cursor.
+                this.#grab = { x: 0, y: 0 };
+                const next = project(e);
+                if (next) {
+                    this.#commit(next, true);
+                }
+            }
+            window.addEventListener('pointermove', onMove, opts);
+            window.addEventListener('pointerup', onUp, opts);
+            window.addEventListener('pointercancel', onUp, opts);
+        }, opts);
+    }
+    #bindKeyboard(root) {
+        const STEPS = {
+            ArrowRight: [1, 0],
+            ArrowLeft: [-1, 0],
+            ArrowUp: [0, 1],
+            ArrowDown: [0, -1],
+        };
+        root.addEventListener('keydown', (e) => {
+            const step = STEPS[e.key];
+            const base = this.#value;
+            if (!step || !base) {
+                return;
+            }
+            e.preventDefault();
+            const [L, C, H] = base;
+            const ceiling = this.#chromaAt(L);
+            const nextC = Math.max(0, Math.min(ceiling, C + step[0] * (ceiling / 100)));
+            const nextL = clamp01(L + step[1] / 100);
+            this.#commit([nextL, nextC, H], false);
+        }, { signal: this.#abort.signal });
+    }
+    // ── Rendering ────────────────────────────────────────────────────────────
+    #schedulePaint() {
+        if (this.#raf !== null) {
+            return;
+        }
+        this.#raf = requestAnimationFrame(() => {
+            this.#raf = null;
+            this.#paint();
+        });
+    }
+    #paint() {
+        const canvas = this.#canvas;
+        const c = this.#active();
+        if (!canvas || !c) {
+            return;
+        }
+        this.#paintedHue = c[2];
+        const colorSpace = wideCanvas ? 'display-p3' : 'srgb';
+        let area;
+        try {
+            area = computeArea({
+                hue: c[2],
+                cssW: canvas.clientWidth || 320,
+                cssH: canvas.clientHeight || 200,
+                dpr: window.devicePixelRatio || 1,
+                supportsP3: wideCanvas,
+                stretch: this.#stretch,
+            });
+        }
+        catch {
+            return; // never let a bad frame throw out of rAF
+        }
+        this.#curve = area.chromaCurve;
+        // Rasterise the gradient at low res offscreen, then scale it up smoothly.
+        const off = document.createElement('canvas');
+        off.width = area.W;
+        off.height = area.H;
+        const offCtx = off.getContext('2d', { colorSpace });
+        if (!offCtx) {
+            return;
+        }
+        const img = offCtx.createImageData(area.W, area.H);
+        img.data.set(new Uint8ClampedArray(area.pixels));
+        offCtx.putImageData(img, 0, 0);
+        canvas.width = area.backingW;
+        canvas.height = area.backingH;
+        const ctx = canvas.getContext('2d', { colorSpace });
+        if (!ctx) {
+            return;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(off, 0, 0, area.backingW, area.backingH);
+        // computeArea only returns boundary curves in wide mode, so just draw them.
+        area.boundaries.forEach((b) => strokeBoundary(ctx, b));
+        // Thumb x depends on the chroma curve we just built.
+        this.#positionThumb();
     }
 }
 
 /*
- * The colour area — Adam Argyle's vendored gamut `AreaPicker` (MIT) wrapped as a
- * Tweakpane sub-controller. The plane is locked to the OKLCH L×C plane in every
- * mode — like Tweakpane's native SV square, which never changes with the mode
- * dropdown — so the thumb never jumps on a mode switch. The sRGB/P3 gamut
- * boundary is drawn in the wide-gamut modes (hidden in the sRGB-bound ones).
+ * The colour area — our gamut-aware `AreaPicker` wrapped as a Tweakpane
+ * sub-controller. It's an OKLCH lightness×chroma plane scaled to the mode's own
+ * gamut (see `areaStretch`): sRGB modes draw the sRGB plane (no lines), P3 draws
+ * the P3 plane with an sRGB line, and Rec2020 / the perceptual modes draw the
+ * Rec2020 plane with sRGB + P3 lines. (The thumb shifts when switching between
+ * gamuts of different width, since the chroma axis rescales.)
  */
 const cnSv = ClassName('svp');
 class AreaController {
@@ -10675,10 +8481,11 @@ class AreaController {
             }
             this.sync_();
         });
-        // The plane stays OKLCH; only the boundary visibility tracks the mode.
-        const syncBoundary = () => this.picker_.setShowBoundary(showsGamutBoundary(this.mode_.rawValue));
-        syncBoundary();
-        this.mode_.emitter.on('change', syncBoundary);
+        // The plane's gamut tracks the mode (sRGB / P3 / Rec2020); narrower gamuts
+        // are then drawn as inner boundary lines.
+        const syncGamut = () => this.picker_.setStretch(areaStretch(this.mode_.rawValue));
+        syncGamut();
+        this.mode_.emitter.on('change', syncGamut);
         config.viewProps.handleDispose(() => {
             this.picker_.unmount();
         });

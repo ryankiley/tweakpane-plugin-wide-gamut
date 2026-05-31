@@ -19,7 +19,7 @@
 }
 
 // The thumb reuses the native SV-marker class (tp-svpv_m) for its exact size,
-// stroke and radius; we only drive its position from Adam's --thumb-x/y. The
+// stroke and radius; we only drive its position from our --thumb-x/y. The
 // native marker centres on its left/top via a -50% margin, so no transform here.
 .area-thumb {
 	left: var(--thumb-x, 50%);

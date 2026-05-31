@@ -184,3 +184,49 @@ test('every non-hex mode has three channel descriptors', () => {
 		assert.equal(MODE_CHANNELS[m]?.length, 3, m);
 	}
 });
+
+test('gamut label stays sRGB through the near-black region (no churn)', () => {
+	// Dragging the black bottom of the plane: every near-black colour displays as
+	// black, so the gamut distinction is imperceptible and the readout must not
+	// churn sRGB↔P3↔wide.
+	for (let c = 0; c <= 0.06; c += 0.01) {
+		assert.equal(
+			OklchColor.fromString(`oklch(0.02 ${c.toFixed(3)} 90)`).gamutLabel(),
+			'sRGB',
+			`near-black C=${c.toFixed(3)}`,
+		);
+	}
+});
+
+test('gamut label still classifies genuinely wide colours correctly', () => {
+	assert.equal(OklchColor.fromString('#3366cc').gamutLabel(), 'sRGB');
+	assert.equal(OklchColor.fromString('color(display-p3 1 0 0)').gamutLabel(), 'P3');
+	assert.equal(OklchColor.fromString('color(display-p3 0 0 1)').gamutLabel(), 'P3'); // P3 blue stays P3
+	assert.equal(OklchColor.fromString('color(rec2020 0 1 0)').gamutLabel(), 'wide');
+});
+
+test('sRGB-bound modes never report P3/wide (a dragged-wide colour reads sRGB)', () => {
+	// A wide colour reached by dragging the area while in an sRGB-bound mode: the
+	// binding output clamps to sRGB, so the readout must say sRGB.
+	const wideInHex = OklchColor.fromString('#ff0000').withCss('oklch(0.8 0.3 150)');
+	assert.equal(wideInHex.mode, 'hex');
+	assert.equal(wideInHex.gamutLabel(), 'sRGB');
+	// The same wide colour in a wide mode reports its real gamut, not sRGB.
+	assert.notEqual(OklchColor.fromString('oklch(0.8 0.3 150)').gamutLabel(), 'sRGB');
+});
+
+test('a near-zero channel renders as 0.00, never -0.00', () => {
+	// oklch hue 91 gives a tiny negative OKLab a; it must snap to 0 for display.
+	const c = OklchColor.fromString('oklch(0.7 0.12 91)');
+	assert.equal(c.channelValues('oklab')[1].toFixed(2), '0.00');
+	assert.ok(!c.readoutString().includes('-0.00'), `readout: ${c.readoutString()}`);
+});
+
+test('switching into an sRGB-bound mode snaps the colour into sRGB', () => {
+	// The area stays freely selectable in every mode; switching *into* RGB/HEX maps
+	// a wider colour to the nearest in-sRGB one so its channels stay meaningful.
+	const wide = OklchColor.fromString('oklch(0.8 0.3 150)');
+	assert.ok(!wide.inGamut('srgb'), 'starts wide');
+	assert.ok(wide.withFormat('srgb').inGamut('srgb'), 'RGB snaps into sRGB');
+	assert.ok(wide.withFormat('hex').inGamut('srgb'), 'HEX snaps into sRGB');
+});

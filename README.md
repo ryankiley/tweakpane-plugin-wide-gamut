@@ -29,9 +29,11 @@ pane.registerPlugin(WideGamutPlugin);
 pane.addBinding({brand: 'oklch(0.7 0.15 250)'}, 'brand');
 ```
 
-## Credits
+## How it works
 
-The colour area is adapted from Adam Argyle's [`color-input`][color-input].
+The colour engine — conversions across all 11 spaces, gamut testing, and gamut
+mapping — is implemented in-house from the [CSS Color 4 specification][css-color-4]
+(and Björn Ottosson's OKLab), with **no runtime colour-library dependency**.
 
 [tweakpane]: https://github.com/cocopon/tweakpane/
-[color-input]: https://github.com/argyleink/css-color-component
+[css-color-4]: https://www.w3.org/TR/css-color-4/
