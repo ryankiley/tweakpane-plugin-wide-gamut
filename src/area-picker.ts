@@ -76,6 +76,12 @@ export class AreaPicker {
 	#raf: number | null = null;
 	// Pointer grab offset (thumb-centre → cursor), in normalised plane units.
 	#grab = {x: 0, y: 0};
+	// Offscreen raster canvas, reused across frames; resized only when the
+	// subsampled dimensions change (so a hue drag never reallocates it).
+	#off: HTMLCanvasElement | null = null;
+	#offCtx: CanvasRenderingContext2D | null = null;
+	#offW = 0;
+	#offH = 0;
 
 	constructor(
 		root: HTMLElement | null,
@@ -351,16 +357,30 @@ export class AreaPicker {
 		this.#curve = area.chromaCurve;
 
 		// Rasterise the gradient at low res offscreen, then scale it up smoothly.
-		const off = document.createElement('canvas');
-		off.width = area.W;
-		off.height = area.H;
-		const offCtx = off.getContext('2d', {colorSpace});
+		// Reuse the offscreen canvas across frames; resizing it (which also clears
+		// it) only when the subsampled dimensions change.
+		if (!this.#off || this.#offW !== area.W || this.#offH !== area.H) {
+			if (!this.#off) {
+				this.#off = document.createElement('canvas');
+			}
+			this.#off.width = area.W;
+			this.#off.height = area.H;
+			this.#offW = area.W;
+			this.#offH = area.H;
+			this.#offCtx = this.#off.getContext('2d', {colorSpace});
+		}
+		const offCtx = this.#offCtx;
 		if (!offCtx) {
 			return;
 		}
-		const img = offCtx.createImageData(area.W, area.H);
-		img.data.set(new Uint8ClampedArray(area.pixels));
-		offCtx.putImageData(img, 0, 0);
+		// `area.pixels` is already a correctly-sized Uint8ClampedArray; wrap it as
+		// ImageData (tagged with the canvas colour space so P3 bytes aren't read as
+		// sRGB) and blit — no intermediate buffer allocation or copy.
+		offCtx.putImageData(
+			new ImageData(area.pixels, area.W, area.H, {colorSpace}),
+			0,
+			0,
+		);
 
 		canvas.width = area.backingW;
 		canvas.height = area.backingH;
@@ -369,7 +389,7 @@ export class AreaPicker {
 			return;
 		}
 		ctx.imageSmoothingEnabled = true;
-		ctx.drawImage(off, 0, 0, area.backingW, area.backingH);
+		ctx.drawImage(this.#off, 0, 0, area.backingW, area.backingH);
 
 		// computeArea only returns boundary curves in wide mode, so just draw them.
 		area.boundaries.forEach((b) => strokeBoundary(ctx, b));
