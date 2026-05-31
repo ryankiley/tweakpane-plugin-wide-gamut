@@ -30,12 +30,30 @@ const COLOR_FN_SPACES: Record<string, Space> = {
 	'prophoto-rgb': 'prophoto-rgb',
 };
 
+const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
+
+// A bare number: optional sign, digits/decimal, optional exponent.
+const NUMBER = String.raw`[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?`;
+const NUMBER_RE = new RegExp(`^${NUMBER}$`);
+// A hue/angle is a number with an optional angle unit — never a percentage.
+const ANGLE_RE = new RegExp(`^(${NUMBER})(deg|grad|rad|turn)?$`);
+
+/** Parse a hue/angle token to degrees, or NaN if it isn't a valid angle (so the
+ *  caller rejects it). Percentages are not valid angles. */
 function parseAngle(tok: string): number {
-	const n = parseFloat(tok);
-	if (tok.endsWith('turn')) return n * 360;
-	if (tok.endsWith('grad')) return n * 0.9;
-	if (tok.endsWith('rad')) return (n * 180) / Math.PI;
-	return n; // deg or unitless
+	const m = ANGLE_RE.exec(tok);
+	if (!m) return NaN;
+	const n = parseFloat(m[1]);
+	switch (m[2]) {
+		case 'turn':
+			return n * 360;
+		case 'grad':
+			return n * 0.9;
+		case 'rad':
+			return (n * 180) / Math.PI;
+		default:
+			return n; // deg or unitless
+	}
 }
 
 type Kind =
@@ -49,18 +67,22 @@ type Kind =
 	| 'okAB'
 	| 'angle';
 
-/** Parse one channel token under the given interpretation. `none` → 0. */
+/** Parse one channel token under the given interpretation. `none` → 0; a token
+ *  that isn't a well-formed number (empty, non-numeric, a stray `/` from mixed
+ *  alpha syntax) → NaN, which the caller turns into a null parse. */
 function chan(tok: string, kind: Kind): number {
 	tok = tok.trim();
 	if (tok === 'none') return 0;
 	if (kind === 'angle') return parseAngle(tok);
 	const pct = tok.endsWith('%');
-	const n = parseFloat(tok);
+	const numStr = pct ? tok.slice(0, -1) : tok;
+	if (!NUMBER_RE.test(numStr)) return NaN;
+	const n = parseFloat(numStr);
 	switch (kind) {
 		case 'rgb':
 			return pct ? n / 100 : n / 255; // → 0..1
 		case 'alpha':
-			return pct ? n / 100 : n; // → 0..1
+			return clamp01(pct ? n / 100 : n); // → 0..1, clamped
 		case 'pct':
 			return n; // hsl S/L, hwb W/B, lab/lch L: value is already 0..100
 		case 'okL':
@@ -77,21 +99,25 @@ function chan(tok: string, kind: Kind): number {
 }
 
 /** Split a function's inner text into channel tokens + an optional alpha token,
- *  handling both legacy comma syntax and modern space / slash syntax. */
-function splitArgs(inner: string): {channels: string[]; alpha: string | null} {
+ *  handling both legacy comma syntax and modern space / slash syntax. Returns
+ *  null for shapes that aren't valid CSS: a comma count other than 3 or 4, or
+ *  more than one `/` alpha separator. */
+function splitArgs(
+	inner: string,
+): {channels: string[]; alpha: string | null} | null {
 	const t = inner.trim();
 	if (t.includes(',')) {
 		const parts = t.split(',').map((s) => s.trim());
-		// Legacy syntax is exactly 3 (no alpha) or 4 (with alpha) comma parts; any
-		// other count is malformed and falls through to the caller's strict check.
-		return parts.length === 4
-			? {channels: parts.slice(0, 3), alpha: parts[3]}
-			: {channels: parts, alpha: null};
+		if (parts.length === 4)
+			return {channels: parts.slice(0, 3), alpha: parts[3]};
+		if (parts.length === 3) return {channels: parts, alpha: null};
+		return null;
 	}
-	const [body, alpha] = t.split('/');
+	const slash = t.split('/');
+	if (slash.length > 2) return null;
 	return {
-		channels: body.trim().split(/\s+/),
-		alpha: alpha != null ? alpha.trim() : null,
+		channels: slash[0].trim().split(/\s+/),
+		alpha: slash.length === 2 ? slash[1].trim() : null,
 	};
 }
 
@@ -127,6 +153,17 @@ const FUNCS: Record<string, {space: Space; kinds: [Kind, Kind, Kind]}> = {
 	oklch: {space: 'oklch', kinds: ['okL', 'okAB', 'angle']},
 };
 
+/** Assemble a result, rejecting (→ null) when any coord or the alpha is NaN —
+ *  the signal that a channel token was ill-formed. */
+function result(space: Space, coords: Vec3, alpha: number): ParsedColor | null {
+	return Number.isNaN(coords[0]) ||
+		Number.isNaN(coords[1]) ||
+		Number.isNaN(coords[2]) ||
+		Number.isNaN(alpha)
+		? null
+		: {space, coords, alpha};
+}
+
 export function parse(css: string): ParsedColor | null {
 	const s = css.trim().toLowerCase();
 	if (s === 'transparent') {
@@ -139,7 +176,11 @@ export function parse(css: string): ParsedColor | null {
 	const fn = /^([a-z0-9-]+)\(([^)]*)\)$/.exec(s);
 	if (fn) {
 		const name = fn[1];
-		const {channels, alpha} = splitArgs(fn[2]);
+		const args = splitArgs(fn[2]);
+		if (!args) {
+			return null;
+		}
+		const {channels, alpha} = args;
 		const a = alpha != null ? chan(alpha, 'alpha') : 1;
 
 		if (name === 'color') {
@@ -147,30 +188,30 @@ export function parse(css: string): ParsedColor | null {
 			if (!space || channels.length !== 4) {
 				return null;
 			}
-			return {
+			return result(
 				space,
-				coords: [
+				[
 					chan(channels[1], 'unit'),
 					chan(channels[2], 'unit'),
 					chan(channels[3], 'unit'),
 				],
-				alpha: a,
-			};
+				a,
+			);
 		}
 
 		const spec = FUNCS[name];
 		if (!spec || channels.length !== 3) {
 			return null;
 		}
-		return {
-			space: spec.space,
-			coords: [
+		return result(
+			spec.space,
+			[
 				chan(channels[0], spec.kinds[0]),
 				chan(channels[1], spec.kinds[1]),
 				chan(channels[2], spec.kinds[2]),
 			],
-			alpha: a,
-		};
+			a,
+		);
 	}
 
 	const named = NAMED_COLORS[s];

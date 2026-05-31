@@ -226,7 +226,22 @@ function extractColorString(trimmed: string): string | null {
 		return stripped;
 	}
 	const token = COLOR_TOKEN.exec(trimmed)?.[0];
-	return token && parses(token) ? token : null;
+	if (!token) {
+		return null;
+	}
+	if (parses(token)) {
+		return token;
+	}
+	// Last resort: a colour whose only fault is mixed separators — e.g. legacy
+	// commas combined with a `/ alpha` (`rgb(255, 0, 0 / 0.5)`), which the strict
+	// parser rejects. Normalise the function's commas to spaces and retry, so the
+	// real channels and the alpha are both kept. A genuinely missing channel
+	// collapses to nothing and still fails (too few channels) — we don't guess it.
+	const normalised = token.replace(
+		/^([a-z]+)\((.*)\)$/i,
+		(_m, fn: string, inner: string) => `${fn}(${inner.replace(/,/g, ' ')})`,
+	);
+	return normalised !== token && parses(normalised) ? normalised : null;
 }
 
 export class OklchColor {
@@ -276,8 +291,8 @@ export class OklchColor {
 
 	/** Alpha to serialise: opaque colours (or formats without alpha) use 1, which
 	 *  the serialiser omits — so the output stays clean. */
-	private outAlpha(withAlpha = true): number {
-		return withAlpha && this.format.hasAlpha ? this.alpha : 1;
+	private outAlpha(): number {
+		return this.format.hasAlpha ? this.alpha : 1;
 	}
 
 	/** Coords to serialise for output `space`: gamut-mapped for the bounded spaces
@@ -636,6 +651,7 @@ export class OklchColor {
 			this.format.spaceId === other.format.spaceId &&
 			this.format.isHex === other.format.isHex &&
 			this.format.isCss === other.format.isCss &&
+			this.format.hasAlpha === other.format.hasAlpha &&
 			Math.abs(this.coords[0] - other.coords[0]) < e &&
 			Math.abs(this.coords[1] - other.coords[1]) < e &&
 			Math.abs(this.coords[2] - other.coords[2]) < e &&
