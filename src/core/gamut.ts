@@ -57,6 +57,20 @@ export function toGamut(oklch: Vec3, dest: Space): Vec3 {
 	let max = oklch[1];
 	let minInGamut = true;
 	let clipped = clip(convert(current, 'oklch', dest));
+	// CSS Color 4 step before the search: if clipping the origin is already within
+	// a JND, return that clip rather than reducing chroma at all. This matters
+	// where the gamut boundary isn't monotonic in chroma (e.g. ProPhoto near
+	// black, where its red channel dips negative then recovers): the bisection's
+	// midpoints can sit further out of gamut than the origin, which would
+	// otherwise walk the result down to a needlessly low chroma.
+	if (
+		deltaEOK(
+			convert(clipped, dest, 'oklab'),
+			convert(oklch, 'oklch', 'oklab'),
+		) < JND
+	) {
+		return clipped;
+	}
 
 	while (max - min > EPS) {
 		const chroma = (min + max) / 2;
