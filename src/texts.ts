@@ -85,7 +85,13 @@ export class TextsController {
 		modeWrap.appendChild(select);
 		const marker = doc.createElement('div');
 		marker.classList.add(cn('mm'));
-		marker.innerHTML = '<svg><path d="M5 7h6l-3 3 z"></path></svg>';
+		// Intrinsic `width`/`height`/`viewBox` so the chevron keeps its size even
+		// in a host that resets `svg { width: auto }` (Tweakpane core sizes its own
+		// copy purely via CSS, which such a reset would defeat). The matching
+		// `max-width: none` guard for `svg { max-width: 100% }` hosts lives in
+		// plugin.scss — together they keep the chevron robust to global svg resets.
+		marker.innerHTML =
+			'<svg width="16" height="16" viewBox="0 0 16 16"><path d="M5 7h6l-3 3 z"></path></svg>';
 		modeWrap.appendChild(marker);
 		head.appendChild(modeWrap);
 		this.selectElem_ = select;
