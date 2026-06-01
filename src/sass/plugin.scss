@@ -51,3 +51,19 @@
 	padding-right: 4px;
 	white-space: nowrap;
 }
+
+// Harden the mode-dropdown chevron against host CSS resets. The marker reuses
+// native's `tp-coltxtv_mm` svg, which Tweakpane sizes to 16×16 and positions
+// absolutely. A consuming site with a global `svg { max-width: 100% }` (a very
+// common reset) collapses it to nothing: the svg's containing block is the
+// shrink-to-fit `_mm` div, whose absolutely-positioned child gives it no
+// laid-out width, so `100%` resolves to 0 and `max-width` clamps the chevron to
+// 0px. Re-pin the size and opt out of any inherited max-width so the chevron
+// renders in any host without the consumer needing their own override. (The svg
+// also carries width/height/viewBox attributes — see texts.ts — for hosts that
+// instead reset `svg { width: auto }`.)
+.wgc-coltxt .tp-coltxtv_mm svg {
+	height: 16px;
+	max-width: none;
+	width: 16px;
+}
