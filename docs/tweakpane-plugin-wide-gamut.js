@@ -8827,7 +8827,13 @@ class TextsController {
         modeWrap.appendChild(select);
         const marker = doc.createElement('div');
         marker.classList.add(cn$1('mm'));
-        marker.innerHTML = '<svg><path d="M5 7h6l-3 3 z"></path></svg>';
+        // Intrinsic `width`/`height`/`viewBox` so the chevron keeps its size even
+        // in a host that resets `svg { width: auto }` (Tweakpane core sizes its own
+        // copy purely via CSS, which such a reset would defeat). The matching
+        // `max-width: none` guard for `svg { max-width: 100% }` hosts lives in
+        // plugin.scss — together they keep the chevron robust to global svg resets.
+        marker.innerHTML =
+            '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M5 7h6l-3 3 z"></path></svg>';
         modeWrap.appendChild(marker);
         head.appendChild(modeWrap);
         this.selectElem_ = select;
@@ -9296,10 +9302,10 @@ const OklchInputPlugin = createPlugin({
     },
 });
 
-// Tweakpane plugin-bundle exports. `.area-canvas{touch-action:none}.area-thumb{left:var(--thumb-x, 50%);pointer-events:none;top:var(--thumb-y, 50%)}.tp-coltxtv.wgc-coltxt{display:flex;flex-direction:column;gap:2px}.wgc-coltxt_head{align-items:center;display:flex;justify-content:space-between}.wgc-gamut{color:var(--lbl-fg);padding-right:4px;white-space:nowrap}` is replaced with the compiled SCSS
+// Tweakpane plugin-bundle exports. `.area-canvas{touch-action:none}.area-thumb{left:var(--thumb-x, 50%);pointer-events:none;top:var(--thumb-y, 50%)}.tp-coltxtv.wgc-coltxt{display:flex;flex-direction:column;gap:2px}.wgc-coltxt_head{align-items:center;display:flex;justify-content:space-between}.wgc-gamut{color:var(--lbl-fg);padding-right:4px;white-space:nowrap}.wgc-coltxt .tp-coltxtv_mm svg{height:16px;max-width:none;width:16px}` is replaced with the compiled SCSS
 // at build time by @rollup/plugin-replace (see rollup.config.js).
 const id = 'wide-gamut';
-const css = '.area-canvas{touch-action:none}.area-thumb{left:var(--thumb-x, 50%);pointer-events:none;top:var(--thumb-y, 50%)}.tp-coltxtv.wgc-coltxt{display:flex;flex-direction:column;gap:2px}.wgc-coltxt_head{align-items:center;display:flex;justify-content:space-between}.wgc-gamut{color:var(--lbl-fg);padding-right:4px;white-space:nowrap}';
+const css = '.area-canvas{touch-action:none}.area-thumb{left:var(--thumb-x, 50%);pointer-events:none;top:var(--thumb-y, 50%)}.tp-coltxtv.wgc-coltxt{display:flex;flex-direction:column;gap:2px}.wgc-coltxt_head{align-items:center;display:flex;justify-content:space-between}.wgc-gamut{color:var(--lbl-fg);padding-right:4px;white-space:nowrap}.wgc-coltxt .tp-coltxtv_mm svg{height:16px;max-width:none;width:16px}';
 const plugins = [OklchInputPlugin];
 
 export { css, id, plugins };
