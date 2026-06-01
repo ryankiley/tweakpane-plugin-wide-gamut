@@ -616,6 +616,30 @@ export class OklchColor {
 		return inGamutOf(this.oklch(), 'oklch', gamut);
 	}
 
+	/**
+	 * The OKLCH coords rounded to the precision the numeric inputs + collapsed
+	 * readout actually show (`digitsFor`, in the current mode's space). `gamutLabel`
+	 * reads this instead of the raw coords so the sRGB/P3/wide label can't flip on
+	 * precision hidden beneath the displayed numbers — a chroma shown as `0.22`
+	 * resolves to one gamut.
+	 */
+	private displayedOklch(): Coords3 {
+		const mode = this.mode;
+		if (mode === 'hex') {
+			return this.oklch(); // no channels (and unreached: hex is sRGB-bound)
+		}
+		const vals = this.channelValues(mode);
+		const rounded = MODE_CHANNELS[mode].map(
+			(ch, i) => Number(vals[i].toFixed(digitsFor(ch.step))) / ch.scale,
+		);
+		const k = convert(
+			[rounded[0], rounded[1], rounded[2]],
+			modeSpaceId(mode),
+			'oklch',
+		);
+		return [num(k[0]), num(k[1]), num(k[2])];
+	}
+
 	/** sRGB and P3 are the only gamuts with real consumer displays, so the readout
 	 *  names those two and lumps anything beyond P3 as "wide".
 	 *
@@ -630,14 +654,15 @@ export class OklchColor {
 		if (!showsGamutBoundary(this.mode)) {
 			return 'sRGB';
 		}
-		const shown = toGamut(this.oklch(), 'srgb'); // colour as actually displayed
+		const oklch = this.displayedOklch(); // at display precision, so it agrees with the numbers
+		const shown = toGamut(oklch, 'srgb'); // colour as actually displayed
 		if (Math.max(...shown) < 0.03 || Math.min(...shown) > 0.97) {
 			return 'sRGB';
 		}
-		if (this.inGamut('srgb')) {
+		if (inGamutOf(oklch, 'oklch', 'srgb')) {
 			return 'sRGB';
 		}
-		if (this.inGamut('p3')) {
+		if (inGamutOf(oklch, 'oklch', 'p3')) {
 			return 'P3';
 		}
 		return 'wide';

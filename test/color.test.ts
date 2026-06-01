@@ -210,6 +210,18 @@ test('gamut label still classifies genuinely wide colours correctly', () => {
 	assert.equal(OklchColor.fromString('color(rec2020 0 1 0)').gamutLabel(), 'wide');
 });
 
+test('gamut label agrees with the displayed numbers (no flip at the P3 edge)', () => {
+	// L90/C0.22/H100 sits right on the P3 chroma ceiling (~0.2167) for this hue, so
+	// 0.2166 (in P3) and 0.2200 (out) both render as "0.22". The label is read at
+	// display precision, so both must resolve to the same gamut rather than flipping
+	// P3 vs wide on a difference the user can't see.
+	const a = OklchColor.fromString('oklch(90% 0.22 100)');
+	const b = OklchColor.fromString('oklch(90% 0.2166 100)');
+	assert.equal(a.channelValues('oklch')[1].toFixed(2), '0.22');
+	assert.equal(b.channelValues('oklch')[1].toFixed(2), '0.22');
+	assert.equal(a.gamutLabel(), b.gamutLabel());
+});
+
 test('sRGB-bound modes never report P3/wide (a dragged-wide colour reads sRGB)', () => {
 	// A wide colour reached by dragging the area while in an sRGB-bound mode: the
 	// binding output clamps to sRGB, so the readout must say sRGB.
