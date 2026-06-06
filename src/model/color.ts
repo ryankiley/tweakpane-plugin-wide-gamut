@@ -299,18 +299,25 @@ export class OklchColor {
 	 *  (RGB + HSL/HWB), matching how the old colorjs serialise mapped them; raw for
 	 *  the unbounded perceptual spaces (OKLCH/OKLab/LCH/Lab). */
 	private outputCoords(space: Space): Coords3 {
+		let c: Coords3;
 		switch (space) {
 			case 'srgb':
 			case 'p3':
 			case 'rec2020':
 			case 'prophoto-rgb':
-				return toGamut(this.oklch(), space);
+				c = toGamut(this.oklch(), space);
+				break;
 			case 'hsl':
 			case 'hwb':
-				return convert(toGamut(this.oklch(), 'srgb'), 'srgb', space);
+				// sRGB→HSL/HWB hands back a NaN ("powerless") hue for an achromatic
+				// colour such as pure black; num() below folds it to 0 so serialize()
+				// never emits a literal "NaN" — matching the 0 the inputs/readout show.
+				c = convert(toGamut(this.oklch(), 'srgb'), 'srgb', space);
+				break;
 			default:
-				return convert(this.oklch(), 'oklch', space);
+				c = convert(this.oklch(), 'oklch', space);
 		}
+		return [num(c[0]), num(c[1]), num(c[2])];
 	}
 
 	// ---- Parsing ------------------------------------------------------------
