@@ -16,7 +16,7 @@ plus **11 colour spaces** to read and edit in.
 ## Usage
 
 ```sh
-npm install tweakpane-plugin-wide-gamut
+npm install tweakpane-plugin-wide-gamut tweakpane
 ```
 
 ```js
