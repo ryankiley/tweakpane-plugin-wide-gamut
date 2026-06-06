@@ -259,3 +259,22 @@ test('the colour area caps every wide mode at the P3 display gamut', () => {
 		assert.equal(areaStretch(m), 'p3', `${m} → P3 plane`);
 	}
 });
+
+test('an achromatic colour never serialises a NaN hue in HSL/HWB', () => {
+	// sRGB→HSL/HWB yields a powerless (NaN) hue for an exactly-achromatic colour
+	// such as pure black; the output must fold it to 0, not emit `hsl(NaN …)`.
+	// Reachable normally: pick black, switch to HSL/HWB mode, or paste hsl(_ _ 0%).
+	for (const src of ['#000000', 'rgb(0 0 0)', '#ffffff', 'hsl(0 0% 50%)']) {
+		for (const m of ['hsl', 'hwb'] as const) {
+			const out = OklchColor.fromString(src).withFormat(m).serialize();
+			assert.doesNotMatch(out, /NaN/, `${src} → ${m} serialised "${out}"`);
+		}
+	}
+	// On the recompute path (source dropped via asEdited / an edit) the powerless
+	// hue folds to 0 — the collapsed readout already showed 0 here, serialize()
+	// now agrees instead of emitting `hsl(NaN 0% 0%)`.
+	assert.equal(
+		OklchColor.fromString('hsl(120 50% 0%)').asEdited().serialize(),
+		'hsl(0 0% 0%)',
+	);
+});
