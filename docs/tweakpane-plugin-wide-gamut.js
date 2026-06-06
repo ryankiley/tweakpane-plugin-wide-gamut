@@ -7808,18 +7808,25 @@ class OklchColor {
      *  (RGB + HSL/HWB), matching how the old colorjs serialise mapped them; raw for
      *  the unbounded perceptual spaces (OKLCH/OKLab/LCH/Lab). */
     outputCoords(space) {
+        let c;
         switch (space) {
             case 'srgb':
             case 'p3':
             case 'rec2020':
             case 'prophoto-rgb':
-                return toGamut(this.oklch(), space);
+                c = toGamut(this.oklch(), space);
+                break;
             case 'hsl':
             case 'hwb':
-                return convert(toGamut(this.oklch(), 'srgb'), 'srgb', space);
+                // sRGB→HSL/HWB hands back a NaN ("powerless") hue for an achromatic
+                // colour such as pure black; num() below folds it to 0 so serialize()
+                // never emits a literal "NaN" — matching the 0 the inputs/readout show.
+                c = convert(toGamut(this.oklch(), 'srgb'), 'srgb', space);
+                break;
             default:
-                return convert(this.oklch(), 'oklch', space);
+                c = convert(this.oklch(), 'oklch', space);
         }
+        return [num(c[0]), num(c[1]), num(c[2])];
     }
     // ---- Parsing ------------------------------------------------------------
     static fromString(css) {
@@ -8793,6 +8800,14 @@ class TextsController {
     gamutElem_;
     numberCs_ = [];
     hexC_ = null;
+    // Per-mode controller sets, built lazily and reused across switches. Core's
+    // NumberTextController/TextController each subscribe to the shared viewProps
+    // (disabled / hidden) with no teardown, so rebuilding them on every mode change
+    // would leak a listener + a detached input row per switch (as native Tweakpane's
+    // own picker does). Caching bounds those one-time subscriptions to one set per
+    // mode for the life of the binding.
+    numberCache_ = {};
+    hexCache_ = null;
     syncing_ = false;
     measureCtx_ = null;
     constructor(doc, config) {
@@ -8918,62 +8933,86 @@ class TextsController {
     buildInputs_() {
         this.syncing_ = true;
         try {
-            const doc = this.doc_;
             const mode = this.mode_.rawValue;
-            this.numberCs_ = [];
-            this.hexC_ = null;
+            // Detach the current inputs without destroying their controllers — only
+            // their DOM is removed; the cached controllers (and their one-time shared-
+            // viewProps subscriptions) live on, so repeated switches add nothing.
             this.inputsElem_.textContent = '';
             if (mode === 'hex') {
-                const tc = new TextController(doc, {
-                    parser: (t) => t,
-                    props: ValueMap.fromObject({ formatter: (v) => v }),
-                    value: createValue(this.value_.rawValue.gamutCss()),
-                    viewProps: this.viewProps_,
-                });
-                tc.value.emitter.on('change', () => {
-                    if (this.syncing_) {
-                        return;
-                    }
-                    const parsed = OklchColor.tryFromString(tc.value.rawValue);
-                    if (parsed) {
-                        this.value_.rawValue = parsed;
-                    }
-                });
+                const tc = this.hexCache_ ?? this.buildHexController_();
+                this.hexCache_ = tc;
+                tc.value.rawValue = this.value_.rawValue.gamutCss();
                 this.appendInput_(tc.view.element);
+                this.numberCs_ = [];
                 this.hexC_ = tc;
                 return;
             }
-            const channels = MODE_CHANNELS[mode];
+            const set = this.numberCache_[mode] ?? this.buildNumberControllers_(mode);
+            this.numberCache_[mode] = set;
             const vals = this.value_.rawValue.channelValues(mode);
-            this.numberCs_ = channels.map((ch, i) => {
-                // Clamp to the channel's range (e.g. RGB stops at 255) on both drag
-                // and typed entry. OKLCH chroma's cap is generous (0.5, past every
-                // real gamut) so wide-gamut colours still fit.
-                const cr = createRangeConstraint({ min: ch.min, max: ch.max });
-                const nc = new NumberTextController(doc, {
-                    parser: parseNumber,
-                    props: ValueMap.fromObject({
-                        formatter: createNumberFormatter(digitsFor(ch.step)),
-                        keyScale: ch.step,
-                        pointerScale: ch.step,
-                    }),
-                    value: createValue(vals[i], cr ? { constraint: cr } : undefined),
-                    viewProps: this.viewProps_,
-                    arrayPosition: i === 0 ? 'fst' : i === channels.length - 1 ? 'lst' : 'mid',
-                });
-                nc.value.emitter.on('change', () => {
-                    if (this.syncing_) {
-                        return;
-                    }
-                    this.value_.rawValue = this.value_.rawValue.withChannel(mode, i, nc.value.rawValue);
-                });
+            set.forEach((nc, i) => {
+                nc.value.rawValue = vals[i];
                 this.appendInput_(nc.view.element);
-                return nc;
             });
+            this.numberCs_ = set;
+            this.hexC_ = null;
         }
         finally {
             this.syncing_ = false;
         }
+    }
+    /** Build the single hex text field (cached, reused across switches). */
+    buildHexController_() {
+        const tc = new TextController(this.doc_, {
+            parser: (t) => t,
+            props: ValueMap.fromObject({ formatter: (v) => v }),
+            value: createValue(this.value_.rawValue.gamutCss()),
+            viewProps: this.viewProps_,
+        });
+        tc.value.emitter.on('change', () => {
+            // Ignore programmatic refreshes and any late event from a now-inactive
+            // mode (this field only writes while HEX is the selected mode).
+            if (this.syncing_ || this.mode_.rawValue !== 'hex') {
+                return;
+            }
+            const parsed = OklchColor.tryFromString(tc.value.rawValue);
+            if (parsed) {
+                this.value_.rawValue = parsed;
+            }
+        });
+        return tc;
+    }
+    /** Build the numeric channel controllers for `mode` (cached, reused). */
+    buildNumberControllers_(mode) {
+        const doc = this.doc_;
+        const channels = MODE_CHANNELS[mode];
+        const vals = this.value_.rawValue.channelValues(mode);
+        return channels.map((ch, i) => {
+            // Clamp to the channel's range (e.g. RGB stops at 255) on both drag
+            // and typed entry. OKLCH chroma's cap is generous (0.5, past every
+            // real gamut) so wide-gamut colours still fit.
+            const cr = createRangeConstraint({ min: ch.min, max: ch.max });
+            const nc = new NumberTextController(doc, {
+                parser: parseNumber,
+                props: ValueMap.fromObject({
+                    formatter: createNumberFormatter(digitsFor(ch.step)),
+                    keyScale: ch.step,
+                    pointerScale: ch.step,
+                }),
+                value: createValue(vals[i], cr ? { constraint: cr } : undefined),
+                viewProps: this.viewProps_,
+                arrayPosition: i === 0 ? 'fst' : i === channels.length - 1 ? 'lst' : 'mid',
+            });
+            nc.value.emitter.on('change', () => {
+                // Ignore programmatic refreshes and any late event from a cached set
+                // whose mode is no longer selected (guards against a stale-mode write).
+                if (this.syncing_ || this.mode_.rawValue !== mode) {
+                    return;
+                }
+                this.value_.rawValue = this.value_.rawValue.withChannel(mode, i, nc.value.rawValue);
+            });
+            return nc;
+        });
     }
     refreshInputs_() {
         this.syncing_ = true;
