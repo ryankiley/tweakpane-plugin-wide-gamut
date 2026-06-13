@@ -29,6 +29,10 @@ const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 const finite = (v: number | null | undefined): number =>
 	v == null || Number.isNaN(v) ? 0 : v;
 
+/** Canonical OKLCH CSS the plane emits for a colour (NaN-coalesced coords). */
+const oklchStr = (c: Coords3): string =>
+	`oklch(${finite(c[0])} ${finite(c[1])} ${finite(c[2])})`;
+
 /** Whether a 2D canvas can be backed by Display-P3 (probe the real API). */
 const wideCanvas = (() => {
 	try {
@@ -154,10 +158,7 @@ export class AreaPicker {
 		if (dragging) {
 			this.#live = coords;
 		}
-		this.#emit(
-			`oklch(${finite(coords[0])} ${finite(coords[1])} ${finite(coords[2])})`,
-			dragging,
-		);
+		this.#emit(oklchStr(coords), dragging);
 		this.#sync();
 	}
 
@@ -235,12 +236,7 @@ export class AreaPicker {
 			}
 			if (this.#live) {
 				// Commit the final value as a non-drag change so text inputs settle.
-				this.#emit(
-					`oklch(${finite(this.#live[0])} ${finite(this.#live[1])} ${finite(
-						this.#live[2],
-					)})`,
-					false,
-				);
+				this.#emit(oklchStr(this.#live), false);
 			}
 			this.#live = null;
 			this.#grab = {x: 0, y: 0};
