@@ -58,7 +58,7 @@ const SRGB_BOUND_MODES: EditMode[] = ['srgb', 'css', 'hsl', 'hwb', 'hex'];
 /** Whether the area draws the sRGB gamut boundary in this mode: shown for every
  *  mode whose space can exceed sRGB, hidden for the sRGB-bound ones (where the
  *  whole plane is reachable, so the line carries no information). */
-export function showsGamutBoundary(mode: EditMode): boolean {
+function showsGamutBoundary(mode: EditMode): boolean {
 	return !SRGB_BOUND_MODES.includes(mode);
 }
 
@@ -91,7 +91,7 @@ export const MODE_LABELS: Record<EditMode, string> = {
 };
 
 /** Colour-engine space id backing an edit mode (hex + css share the sRGB space). */
-export function modeSpaceId(mode: EditMode): Space {
+function modeSpaceId(mode: EditMode): Space {
 	return mode === 'hex' || mode === 'css' ? 'srgb' : (mode as Space);
 }
 
@@ -276,12 +276,7 @@ export class OklchColor {
 	 *  typed into, so an out-of-range entry shows as its clamped value rather than
 	 *  echoing the nonsense back. */
 	asEdited(): OklchColor {
-		return new OklchColor(
-			[this.coords[0], this.coords[1], this.coords[2]],
-			this.alpha,
-			this.format,
-			null,
-		);
+		return new OklchColor(this.oklch(), this.alpha, this.format, null);
 	}
 
 	/** Mutable copy of the canonical OKLCH coords (engine functions take a tuple). */
@@ -533,7 +528,7 @@ export class OklchColor {
 
 	withAlpha(alpha: number): OklchColor {
 		return new OklchColor(
-			[this.coords[0], this.coords[1], this.coords[2]],
+			this.oklch(),
 			alpha,
 			{...this.format, hasAlpha: true},
 			null,
@@ -569,7 +564,7 @@ export class OklchColor {
 		// Switching into an sRGB-bound mode snaps a wider colour to the nearest
 		// in-sRGB one (so its channels stay meaningful); the area itself stays freely
 		// selectable, and the perceptual / wide-RGB modes keep the colour untouched.
-		let coords: Coords3 = [this.coords[0], this.coords[1], this.coords[2]];
+		let coords: Coords3 = this.oklch();
 		if (SRGB_BOUND_MODES.includes(mode) && !this.inGamut('srgb')) {
 			const back = convert(toGamut(this.oklch(), 'srgb'), 'srgb', 'oklch');
 			coords = [num(back[0]), num(back[1]), num(back[2])];
