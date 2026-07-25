@@ -33,6 +33,9 @@ export class PickerController {
 	public readonly mode: Value<EditMode>;
 	private readonly area_: AreaController;
 	private readonly texts_: TextsController;
+	/** Alpha row, built lazily the first time the value carries alpha, then kept
+	 *  and detached/reattached as `hasAlpha` flips. */
+	private alphaRow_: HTMLElement | null = null;
 
 	constructor(doc: Document, config: Config) {
 		// Start in the value's own mode, so the dropdown + collapsed readout agree.
@@ -71,15 +74,39 @@ export class PickerController {
 		rgb.appendChild(this.texts_.element);
 		root.appendChild(rgb);
 
-		// Alpha row — only when the bound value carries alpha (matches native).
-		if (config.value.rawValue.hasAlpha) {
-			root.appendChild(this.createAlphaRow_(doc, config.value, shared));
-		}
+		// Alpha row — present exactly while the bound value carries alpha. Native
+		// decides this once at construction, but our drop-in claims any colour
+		// string, so a value can *gain* alpha later (pasting `rgba(…, 0.5)` into an
+		// opaque binding) and would otherwise be left translucent with no UI to
+		// adjust it. Built on first need and then detached/reattached rather than
+		// rebuilt: core's NumberTextController subscribes to the shared viewProps
+		// with no teardown, so recreating it on every flip would leak a listener per
+		// toggle — the same reason TextsController caches its per-mode inputs.
+		const syncAlphaRow = () => {
+			const wants = config.value.rawValue.hasAlpha;
+			if (wants && !this.alphaRow_) {
+				this.alphaRow_ = this.createAlphaRow_(doc, config.value, shared);
+			}
+			if (!this.alphaRow_) {
+				return;
+			}
+			if (!wants) {
+				this.alphaRow_.remove();
+			} else if (this.alphaRow_.parentNode !== root) {
+				// Only when actually detached: re-appending an attached node removes
+				// and re-inserts it, which blurs a focused descendant — and this runs
+				// on every value change, so arrow-stepping in the alpha field would
+				// lose focus after one press. Always last, after the texts row.
+				root.appendChild(this.alphaRow_);
+			}
+		};
+		syncAlphaRow();
 
 		// Follow the value's output format: typing a different-format colour into
 		// the text field (e.g. a hex while in OKLCH mode) re-points the mode
 		// dropdown, so it never disagrees with the collapsed readout.
 		config.value.emitter.on('change', () => {
+			syncAlphaRow();
 			const mode = config.value.rawValue.mode;
 			if (mode !== this.mode.rawValue) {
 				this.mode.rawValue = mode;

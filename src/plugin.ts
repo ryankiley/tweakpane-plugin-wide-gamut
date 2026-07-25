@@ -7,10 +7,25 @@ import {
 } from '@tweakpane/core';
 
 import {ColorController} from './controller.js';
+import {parse} from './core/parse.js';
 import {OklchColor} from './model/color.js';
 
 export interface OklchInputParams extends BaseInputParams {
 	expanded?: boolean;
+}
+
+/**
+ * Is the bound value a colour string *on its own*? Deliberately the strict
+ * parser, not the model's lenient `OklchColor.isColorString`: that one recovers a
+ * colour from surrounding text (a CSS declaration, a quoted value, an
+ * `!important`), which is what the picker's text field wants but not what
+ * `accept` wants. Claiming a binding whose value merely *contains* a colour —
+ * `'box-shadow: 0 0 4px rgba(0,0,0,0.5)'` — would swap a text input for a colour
+ * picker and then, on the first write, persist only the extracted token and
+ * discard the rest of the string.
+ */
+function isBareColorString(value: unknown): value is string {
+	return typeof value === 'string' && parse(value) !== null;
 }
 
 /**
@@ -27,7 +42,7 @@ export const OklchInputPlugin: InputBindingPlugin<
 	type: 'input',
 
 	accept(exValue: unknown, params: Record<string, unknown>) {
-		if (!OklchColor.isColorString(exValue)) {
+		if (!isBareColorString(exValue)) {
 			return null;
 		}
 		const result = parseRecord<OklchInputParams>(params, (p) => ({
