@@ -2,7 +2,10 @@
 /* eslint-env node */
 
 import Fs from 'fs';
-import Glob from 'glob';
+// Named import: glob dropped its default export in v9. It is a direct
+// devDependency — it used to resolve only through rimraf@3's transitive copy,
+// which a rimraf bump would have silently taken away.
+import {globSync} from 'glob';
 import Path from 'path';
 
 const Package = JSON.parse(
@@ -11,7 +14,7 @@ const Package = JSON.parse(
 
 const PATTERN = 'dist/*';
 
-const paths = Glob.sync(PATTERN);
+const paths = globSync(PATTERN);
 paths.forEach((path) => {
 	const fileName = Path.basename(path);
 	if (Fs.statSync(path).isDirectory()) {

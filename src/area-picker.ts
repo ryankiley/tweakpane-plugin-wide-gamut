@@ -338,6 +338,7 @@ export class AreaPicker {
 		const colorSpace: PredefinedColorSpace = wideCanvas ? 'display-p3' : 'srgb';
 
 		let area: AreaResult;
+		let image: ImageData;
 		try {
 			area = computeArea({
 				hue: c[2],
@@ -347,6 +348,9 @@ export class AreaPicker {
 				supportsP3: wideCanvas,
 				stretch: this.#stretch,
 			});
+			// Inside the guard too: a canvas laid out at 1–3 CSS px subsamples to a
+			// zero-width plane, and `new ImageData` rejects a zero dimension.
+			image = new ImageData(area.pixels, area.W, area.H, {colorSpace});
 		} catch {
 			return; // never let a bad frame throw out of rAF
 		}
@@ -369,14 +373,9 @@ export class AreaPicker {
 		if (!offCtx) {
 			return;
 		}
-		// `area.pixels` is already a correctly-sized Uint8ClampedArray; wrap it as
-		// ImageData (tagged with the canvas colour space so P3 bytes aren't read as
-		// sRGB) and blit — no intermediate buffer allocation or copy.
-		offCtx.putImageData(
-			new ImageData(area.pixels, area.W, area.H, {colorSpace}),
-			0,
-			0,
-		);
+		// `image` wraps `area.pixels` directly (tagged with the canvas colour space so
+		// P3 bytes aren't read as sRGB), so the blit costs no extra allocation or copy.
+		offCtx.putImageData(image, 0, 0);
 
 		canvas.width = area.backingW;
 		canvas.height = area.backingH;

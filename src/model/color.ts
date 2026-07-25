@@ -473,8 +473,8 @@ export class OklchColor {
 		return serialize(this.oklch(), 'oklch', this.outAlpha());
 	}
 
-	/** Gamut-mapped sRGB hex, for the swatch fallback / hex field. Always
-	 *  full-length (`#ffffff`, never `#fff`). */
+	/** Gamut-mapped sRGB hex, for the HEX mode's text field and the collapsed
+	 *  readout in that mode. Always full-length (`#ffffff`, never `#fff`). */
 	gamutCss(): string {
 		return serialize(toGamut(this.oklch(), 'srgb'), 'srgb', this.outAlpha(), {
 			format: 'hex',

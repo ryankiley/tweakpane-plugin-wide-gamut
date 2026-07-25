@@ -243,7 +243,12 @@ export class TextsController {
 			}
 			const parsed = OklchColor.tryFromString(tc.value.rawValue);
 			if (parsed) {
-				this.value_.rawValue = parsed;
+				// `.asEdited()` drops the verbatim source so the binding re-serialises
+				// from the (clamped) coords — same contract as the collapsed colour
+				// field. Without it, typing e.g. `oklch(0.5 40000 20)` here would clamp
+				// the model's chroma to 0.5 but still write the nonsense string
+				// through, leaving the binding disagreeing with every input shown.
+				this.value_.rawValue = parsed.asEdited();
 			}
 		});
 		return tc;

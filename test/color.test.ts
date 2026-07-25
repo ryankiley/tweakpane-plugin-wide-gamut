@@ -34,6 +34,16 @@ test('asEdited drops the source and re-serialises from coords', () => {
 	approx(back.channelValues('srgb')[2], 0, 1);
 });
 
+test('asEdited is what stops a clamped colour serialising as its raw input', () => {
+	// The contract both text fields rely on: every typed-entry path must go
+	// through asEdited(), or the binding keeps a verbatim string the clamped
+	// coords no longer agree with. (The HEX field used to skip it.)
+	const typed = OklchColor.fromString('oklch(0.5 40000 20)');
+	approx(typed.coords[1], 0.5, 1e-9); // chroma clamped to MAX_CHROMA
+	assert.equal(typed.serialize(), 'oklch(0.5 40000 20)'); // ...but source wins
+	assert.equal(typed.asEdited().serialize(), 'oklch(50% 0.5 20)'); // clamped
+});
+
 test('construction clamps nonsense at the single choke point', () => {
 	// L > 1, chroma far past any gamut, hue > 360.
 	const c = OklchColor.fromString('oklch(5 40000 9999)');
