@@ -5,6 +5,13 @@
 		"strict": true,
 		"target": "ES2022",
 		"importHelpers": false,
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		// `src` is browser-only, so nothing here needs Node's ambient types — and
+		// auto-including them is a standing hazard. There is no lockfile (library
+		// convention), so CI installs whatever `@types/node` a transitive dep
+		// resolves to that day; when one ships syntax newer than our TypeScript can
+		// parse, `build:dts` fails on a file we never asked for. `skipLibCheck`
+		// does not help — these are parse errors, not type errors.
+		"types": []
 	}
 }
