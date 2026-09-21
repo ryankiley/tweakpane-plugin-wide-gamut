@@ -7793,7 +7793,7 @@ class OklchColor {
      *  typed into, so an out-of-range entry shows as its clamped value rather than
      *  echoing the nonsense back. */
     asEdited() {
-        return new OklchColor([this.coords[0], this.coords[1], this.coords[2]], this.alpha, this.format, null);
+        return new OklchColor(this.oklch(), this.alpha, this.format, null);
     }
     /** Mutable copy of the canonical OKLCH coords (engine functions take a tuple). */
     oklch() {
@@ -7971,8 +7971,8 @@ class OklchColor {
     displayCss() {
         return serialize(this.oklch(), 'oklch', this.outAlpha());
     }
-    /** Gamut-mapped sRGB hex, for the swatch fallback / hex field. Always
-     *  full-length (`#ffffff`, never `#fff`). */
+    /** Gamut-mapped sRGB hex, for the HEX mode's text field and the collapsed
+     *  readout in that mode. Always full-length (`#ffffff`, never `#fff`). */
     gamutCss() {
         return serialize(toGamut(this.oklch(), 'srgb'), 'srgb', this.outAlpha(), {
             format: 'hex',
@@ -8010,7 +8010,7 @@ class OklchColor {
         return new OklchColor([num(k[0]), num(k[1]), num(k[2])], alpha, this.format, null);
     }
     withAlpha(alpha) {
-        return new OklchColor([this.coords[0], this.coords[1], this.coords[2]], alpha, { ...this.format, hasAlpha: true }, null);
+        return new OklchColor(this.oklch(), alpha, { ...this.format, hasAlpha: true }, null);
     }
     /** Whether the bound value carries an alpha channel (drives the alpha UI). */
     get hasAlpha() {
@@ -8039,7 +8039,7 @@ class OklchColor {
         // Switching into an sRGB-bound mode snaps a wider colour to the nearest
         // in-sRGB one (so its channels stay meaningful); the area itself stays freely
         // selectable, and the perceptual / wide-RGB modes keep the colour untouched.
-        let coords = [this.coords[0], this.coords[1], this.coords[2]];
+        let coords = this.oklch();
         if (SRGB_BOUND_MODES.includes(mode) && !this.inGamut('srgb')) {
             const back = convert(toGamut(this.oklch(), 'srgb'), 'srgb', 'oklch');
             coords = [num(back[0]), num(back[1]), num(back[2])];
@@ -8295,6 +8295,8 @@ function computeArea(req) {
 const FALLBACK_CHROMA = 0.37;
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const finite = (v) => v == null || Number.isNaN(v) ? 0 : v;
+/** Canonical OKLCH CSS the plane emits for a colour (NaN-coalesced coords). */
+const oklchStr = (c) => `oklch(${finite(c[0])} ${finite(c[1])} ${finite(c[2])})`;
 /** Whether a 2D canvas can be backed by Display-P3 (probe the real API). */
 const wideCanvas = (() => {
     try {
@@ -8404,7 +8406,7 @@ class AreaPicker {
         if (dragging) {
             this.#live = coords;
         }
-        this.#emit(`oklch(${finite(coords[0])} ${finite(coords[1])} ${finite(coords[2])})`, dragging);
+        this.#emit(oklchStr(coords), dragging);
         this.#sync();
     }
     /** Reapply every reaction to the active colour. Cheap and idempotent. */
@@ -8477,7 +8479,7 @@ class AreaPicker {
             }
             if (this.#live) {
                 // Commit the final value as a non-drag change so text inputs settle.
-                this.#emit(`oklch(${finite(this.#live[0])} ${finite(this.#live[1])} ${finite(this.#live[2])})`, false);
+                this.#emit(oklchStr(this.#live), false);
             }
             this.#live = null;
             this.#grab = { x: 0, y: 0 };
@@ -8563,6 +8565,7 @@ class AreaPicker {
         this.#paintedHue = c[2];
         const colorSpace = wideCanvas ? 'display-p3' : 'srgb';
         let area;
+        let image;
         try {
             area = computeArea({
                 hue: c[2],
@@ -8572,6 +8575,9 @@ class AreaPicker {
                 supportsP3: wideCanvas,
                 stretch: this.#stretch,
             });
+            // Inside the guard too: a canvas laid out at 1–3 CSS px subsamples to a
+            // zero-width plane, and `new ImageData` rejects a zero dimension.
+            image = new ImageData(area.pixels, area.W, area.H, { colorSpace });
         }
         catch {
             return; // never let a bad frame throw out of rAF
@@ -8594,10 +8600,9 @@ class AreaPicker {
         if (!offCtx) {
             return;
         }
-        // `area.pixels` is already a correctly-sized Uint8ClampedArray; wrap it as
-        // ImageData (tagged with the canvas colour space so P3 bytes aren't read as
-        // sRGB) and blit — no intermediate buffer allocation or copy.
-        offCtx.putImageData(new ImageData(area.pixels, area.W, area.H, { colorSpace }), 0, 0);
+        // `image` wraps `area.pixels` directly (tagged with the canvas colour space so
+        // P3 bytes aren't read as sRGB), so the blit costs no extra allocation or copy.
+        offCtx.putImageData(image, 0, 0);
         canvas.width = area.backingW;
         canvas.height = area.backingH;
         const ctx = canvas.getContext('2d', { colorSpace });
@@ -8977,7 +8982,12 @@ class TextsController {
             }
             const parsed = OklchColor.tryFromString(tc.value.rawValue);
             if (parsed) {
-                this.value_.rawValue = parsed;
+                // `.asEdited()` drops the verbatim source so the binding re-serialises
+                // from the (clamped) coords — same contract as the collapsed colour
+                // field. Without it, typing e.g. `oklch(0.5 40000 20)` here would clamp
+                // the model's chroma to 0.5 but still write the nonsense string
+                // through, leaving the binding disagreeing with every input shown.
+                this.value_.rawValue = parsed.asEdited();
             }
         });
         return tc;
@@ -9048,6 +9058,9 @@ class PickerController {
     mode;
     area_;
     texts_;
+    /** Alpha row, built lazily the first time the value carries alpha, then kept
+     *  and detached/reattached as `hasAlpha` flips. */
+    alphaRow_ = null;
     constructor(doc, config) {
         // Start in the value's own mode, so the dropdown + collapsed readout agree.
         this.mode = createValue(config.value.rawValue.mode);
@@ -9079,14 +9092,39 @@ class PickerController {
         this.texts_ = new TextsController(doc, shared);
         rgb.appendChild(this.texts_.element);
         root.appendChild(rgb);
-        // Alpha row — only when the bound value carries alpha (matches native).
-        if (config.value.rawValue.hasAlpha) {
-            root.appendChild(this.createAlphaRow_(doc, config.value, shared));
-        }
+        // Alpha row — present exactly while the bound value carries alpha. Native
+        // decides this once at construction, but our drop-in claims any colour
+        // string, so a value can *gain* alpha later (pasting `rgba(…, 0.5)` into an
+        // opaque binding) and would otherwise be left translucent with no UI to
+        // adjust it. Built on first need and then detached/reattached rather than
+        // rebuilt: core's NumberTextController subscribes to the shared viewProps
+        // with no teardown, so recreating it on every flip would leak a listener per
+        // toggle — the same reason TextsController caches its per-mode inputs.
+        const syncAlphaRow = () => {
+            const wants = config.value.rawValue.hasAlpha;
+            if (wants && !this.alphaRow_) {
+                this.alphaRow_ = this.createAlphaRow_(doc, config.value, shared);
+            }
+            if (!this.alphaRow_) {
+                return;
+            }
+            if (!wants) {
+                this.alphaRow_.remove();
+            }
+            else if (this.alphaRow_.parentNode !== root) {
+                // Only when actually detached: re-appending an attached node removes
+                // and re-inserts it, which blurs a focused descendant — and this runs
+                // on every value change, so arrow-stepping in the alpha field would
+                // lose focus after one press. Always last, after the texts row.
+                root.appendChild(this.alphaRow_);
+            }
+        };
+        syncAlphaRow();
         // Follow the value's output format: typing a different-format colour into
         // the text field (e.g. a hex while in OKLCH mode) re-points the mode
         // dropdown, so it never disagrees with the collapsed readout.
         config.value.emitter.on('change', () => {
+            syncAlphaRow();
             const mode = config.value.rawValue.mode;
             if (mode !== this.mode.rawValue) {
                 this.mode.rawValue = mode;
@@ -9303,6 +9341,19 @@ class ColorController {
 }
 
 /**
+ * Is the bound value a colour string *on its own*? Deliberately the strict
+ * parser, not the model's lenient `OklchColor.isColorString`: that one recovers a
+ * colour from surrounding text (a CSS declaration, a quoted value, an
+ * `!important`), which is what the picker's text field wants but not what
+ * `accept` wants. Claiming a binding whose value merely *contains* a colour —
+ * `'box-shadow: 0 0 4px rgba(0,0,0,0.5)'` — would swap a text input for a colour
+ * picker and then, on the first write, persist only the extracted token and
+ * discard the rest of the string.
+ */
+function isBareColorString(value) {
+    return typeof value === 'string' && parse(value) !== null;
+}
+/**
  * Drop-in OKLCH colour picker. Because Tweakpane tries registered plugins before
  * its built-ins, this claims any colour-string binding and replaces the native
  * picker — no `view` parameter required.
@@ -9311,7 +9362,7 @@ const OklchInputPlugin = createPlugin({
     id: 'input-wide-gamut',
     type: 'input',
     accept(exValue, params) {
-        if (!OklchColor.isColorString(exValue)) {
+        if (!isBareColorString(exValue)) {
             return null;
         }
         const result = parseRecord(params, (p) => ({
