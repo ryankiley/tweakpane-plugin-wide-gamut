@@ -80,6 +80,7 @@ const MAX_CHROMA = 0.5;
  *  §"missing components"). Parsed greys land around 1e-16; the faintest tint an
  *  8-bit sRGB value can carry (`#808081`) is ~1.5e-3, so 1e-4 splits them cleanly. */
 const POWERLESS_CHROMA = 1e-4;
+const achromatic = (chroma: number): boolean => chroma < POWERLESS_CHROMA;
 
 export const MODE_LABELS: Record<EditMode, string> = {
 	oklch: 'OKLCH',
@@ -374,13 +375,7 @@ export class OklchColor {
 			isCss,
 			hasAlpha,
 		};
-		return new OklchColor(
-			coords,
-			alpha,
-			format,
-			source,
-			coords[1] < POWERLESS_CHROMA,
-		);
+		return new OklchColor(coords, alpha, format, source, achromatic(coords[1]));
 	}
 
 	static tryFromString(css: string): OklchColor | null {
@@ -546,7 +541,7 @@ export class OklchColor {
 		const powerless =
 			this.huePowerless &&
 			MODE_CHANNELS[mode][index].key !== 'h' &&
-			c[1] < POWERLESS_CHROMA;
+			achromatic(c[1]);
 		return new OklchColor(c, alpha, this.format, null, powerless);
 	}
 
@@ -636,21 +631,27 @@ export class OklchColor {
 		return this.withHue(h, c, null);
 	}
 
-	/** Copy with hue `h` (and chroma `c`), the hue now a deliberate choice. */
-	private withHue(h: number, c: number, source: string | null): OklchColor {
+	/** Copy with hue `h` (and chroma `c`); the hue counts as chosen unless the
+	 *  caller says it is still `powerless` (inherited from another unchosen grey). */
+	private withHue(
+		h: number,
+		c: number,
+		source: string | null,
+		powerless = false,
+	): OklchColor {
 		return new OklchColor(
 			[this.coords[0], c, h],
 			this.alpha,
 			this.format,
 			source,
-			false,
+			powerless,
 		);
 	}
 
 	/** Achromatic: chroma below the powerless threshold, so the hue carries no
 	 *  colour information. */
 	get isAchromatic(): boolean {
-		return this.coords[1] < POWERLESS_CHROMA;
+		return achromatic(this.coords[1]);
 	}
 
 	/**
@@ -673,9 +674,18 @@ export class OklchColor {
 	}
 
 	/** If this colour's hue is powerless, take `prev`'s hue (the one the picker
-	 *  is on); otherwise unchanged. For a colour typed into a text field. */
+	 *  is on); otherwise unchanged. For a colour typed into a text field. If
+	 *  `prev`'s hue was itself never chosen, the result stays unchosen too — the
+	 *  plane holds still, but nothing records that noise as a real hue. */
 	inheritHue(prev: OklchColor): OklchColor {
-		return this.huePowerless ? this.withRetainedHue(prev.areaHue()) : this;
+		return this.huePowerless
+			? this.withHue(
+					prev.areaHue(),
+					this.coords[1],
+					this.source,
+					prev.huePowerless,
+			  )
+			: this;
 	}
 
 	/** Adopt coords from an arbitrary CSS string (e.g. the area picker's onChange). */

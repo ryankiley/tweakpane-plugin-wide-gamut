@@ -44,7 +44,9 @@ export class StripController {
 	private readonly markerElem_: HTMLElement;
 	private readonly fillElem_: HTMLElement;
 	/** `L|fraction|gamut` the hue gradient was last built for — not hue, and a
-	 *  hue drag holds the fraction, so dragging never rebuilds it. */
+	 *  hue drag holds the fraction, so dragging hue never rebuilds it. L is keyed
+	 *  at 3 dp so a plane drag only rebuilds when the strip would actually look
+	 *  different, not on every pointermove. */
 	private gradientKey_ = '';
 
 	constructor(doc: Document, config: Config) {
@@ -117,8 +119,9 @@ export class StripController {
 	private refresh_(): void {
 		const c = this.value_.rawValue;
 		if (this.kind_ === 'hue') {
-			const [l, ch, h] = c.coordsIn('oklch').coords;
+			const [l0, ch, h] = c.coordsIn('oklch').coords;
 			const gamut = areaStretch(this.mode_.rawValue);
+			const l = Number(l0.toFixed(3));
 			const f = chromaFraction(l, ch, h, gamut);
 			const key = `${l}|${f}|${gamut}`;
 			if (key !== this.gradientKey_) {
@@ -127,7 +130,9 @@ export class StripController {
 			}
 			this.markerElem_.style.left = `${h / 3.6}%`;
 			// Like native: fill the marker with the strip's own colour at its
-			// position, so it blends in (its white ring makes it visible).
+			// position, so it blends in (its white ring makes it visible). Below the
+			// chroma floor that is the strip's floored colour, not the (greyer)
+			// colour itself — the swatch and plane show the real one.
 			this.markerElem_.style.backgroundColor = hueStripColor(l, f, h, gamut);
 		} else {
 			const [l, ch, hh] = c.coordsIn('oklch').coords;

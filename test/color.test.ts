@@ -367,6 +367,12 @@ test('inheritHue: a typed grey takes the hue the picker is on', () => {
 	approx(OklchColor.fromString('#ff0000').inheritHue(prev).areaHue(), 29, 1);
 	// Typed grey over a grey picker: inherits whatever hue the plane shows.
 	approx(OklchColor.fromString('#404040').inheritHue(typed).areaHue(), 200);
+	// … and if that hue was itself never chosen (a parsed grey), it stays
+	// unchosen, so the binding never records parser noise as a real hue.
+	const noise = OklchColor.fromString('#808080');
+	const over = OklchColor.fromString('#404040').inheritHue(noise);
+	approx(over.areaHue(), noise.areaHue());
+	assert.ok(over.hueIsPowerless);
 });
 
 test('withRetainedHue swaps the hue but serialises the verbatim source', () => {

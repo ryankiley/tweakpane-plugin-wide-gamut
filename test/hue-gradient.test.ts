@@ -76,11 +76,18 @@ test('chromaFraction: share of the edge, clamped to 1, stable across a hue drag'
 	// A hue drag holds the fraction (withAreaHue rescales chroma by the edge
 	// ratio), so the fraction read back at the new hue is the same number and
 	// the strip key does not change mid-drag.
-	const c = OklchColor.fromString('oklch(0.6 0.1 200)');
-	const f0 = chromaFraction(0.6, 0.1, 200, 'srgb');
-	for (const h of [0, 37, 120, 250, 359]) {
-		const m = c.withAreaHue(h, 'srgb');
-		assert.equal(chromaFraction(m.coords[0], m.coords[1], h, 'srgb'), f0, `h=${h}`);
+	for (const C of [0.1, 0.01]) {
+		// 0.1 is above the floor (a real fraction); 0.01 is below it (floored).
+		const c = OklchColor.fromString(`oklch(0.6 ${C} 200)`);
+		const f0 = chromaFraction(0.6, C, 200, 'srgb');
+		for (const h of [0, 37, 120, 250, 359]) {
+			const m = c.withAreaHue(h, 'srgb');
+			assert.equal(
+				chromaFraction(m.coords[0], m.coords[1], h, 'srgb'),
+				f0,
+				`C=${C} h=${h}`,
+			);
+		}
 	}
 });
 
