@@ -621,8 +621,9 @@ export class OklchColor {
 	 * ceiling at the new hue as at the old. The gamut's edge moves a lot with hue
 	 * (P3 at L 0.5 spans ~0.12 at hue 220 to ~0.28 at 300), so holding chroma
 	 * constant would slide the thumb sideways — and off the edge into colours the
-	 * plane can't show — on every hue drag. A colour already past the edge snaps
-	 * onto it (fraction capped at 1). Without `gamut`, chroma is held as is.
+	 * plane can't show — on every hue drag. A colour already past the edge keeps
+	 * the same ratio past it (nothing is clamped). Without `gamut`, chroma is held
+	 * as is.
 	 */
 	withAreaHue(hue: number, gamut?: Space): OklchColor {
 		const [L, C, H] = this.coords;

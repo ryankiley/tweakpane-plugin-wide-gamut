@@ -7557,7 +7557,7 @@ function round(n, precision) {
     const mult = 10 ** Math.max(0, precision - intDigits);
     return Math.round(n * mult) / mult;
 }
-const fmt = (n, p) => String(round(n, p));
+const fmt$1 = (n, p) => String(round(n, p));
 function hex(srgb, alpha) {
     const h = (c) => Math.round(Math.min(1, Math.max(0, c)) * 255)
         .toString(16)
@@ -7574,7 +7574,7 @@ function serialize(coords, space, alpha = 1, opts = {}) {
         return hex(coords, alpha);
     }
     const p = opts.precision ?? 5;
-    const f = (n) => fmt(n, p);
+    const f = (n) => fmt$1(n, p);
     const a = alpha < 1 ? ` / ${f(alpha)}` : '';
     const [x, y, z] = coords;
     switch (space) {
@@ -8050,10 +8050,6 @@ class OklchColor {
             isCss: mode === 'css',
             hasAlpha: this.format.hasAlpha,
         }, null);
-    }
-    /** OKLCH hue (degrees) — the fixed axis of the locked L×C area plane. */
-    areaHue() {
-        return this.coords[2];
     }
     /** New colour with the area plane's fixed hue (OKLCH H) set to `hue` (degrees). */
     withAreaHue(hue) {
@@ -8693,11 +8689,46 @@ class AreaController {
 }
 
 /*
+ * The hue strip's background: a gradient of OKLCH hues, so position t along
+ * the strip is OKLCH hue t·360 — the hue the area plane is locked to.
+ * (Tweakpane's native strip is an HSL rainbow PNG; HSL and OKLCH hue angles
+ * disagree by 20–30°, so under an OKLCH marker it reads wrong.)
+ *
+ * Each stop carries the colour's own lightness and chroma, clamped to the
+ * plane's edge at that hue — exactly the colour a hue drag lands on, since the
+ * drag keeps L and C (`withAreaHue`). Stops every 5° are close enough that the
+ * interpolation space between them is immaterial, so the gradient stays plain
+ * (no `in oklch`): any browser that parses `oklch()` renders it.
+ */
+/** Stop spacing in degrees. */
+const HUE_STEP = 5;
+const fmt = (v) => Number(v.toFixed(4)).toString();
+/** The strip colour at `hue`: (L, C) clamped to the `gamut` edge at that hue. */
+function hueStripColor(L, C, hue, gamut) {
+    const c = Math.min(C, maxChroma(oklchGamutProbe(hue, gamut), L));
+    return `oklch(${fmt(L)} ${fmt(c)} ${fmt(hue)})`;
+}
+/** The whole strip: a stop every HUE_STEP degrees from 0 to 360. */
+function hueStripGradient(L, C, gamut) {
+    const stops = [];
+    for (let h = 0; h <= 360; h += HUE_STEP) {
+        stops.push(`${hueStripColor(L, C, h, gamut)} ${fmt(h / 3.6)}%`);
+    }
+    return `linear-gradient(to right, ${stops.join(', ')})`;
+}
+
+/*
  * Hue / alpha strips, reusing Tweakpane's native h-palette (`tp-hplv`) and
- * a-palette (`tp-aplv`) DOM + classes so the loaded Tweakpane CSS styles them
- * identically to the built-in picker. The hue strip edits the fixed axis of the
- * current mode's area plane (oklch H / okhsv h / hsl H); the alpha strip edits
- * alpha.
+ * a-palette (`tp-aplv`) DOM + classes so the loaded Tweakpane CSS sizes and
+ * positions them identically to the built-in picker. The hue strip edits the
+ * fixed axis of the area plane (OKLCH H); the alpha strip edits alpha.
+ *
+ * Both strips paint their own background inline. The native hue strip's is an
+ * HSL rainbow PNG, whose hue angles don't line up with OKLCH (sRGB red is HSL 0
+ * but OKLCH ≈29; green 120 vs ≈142; blue 240 vs ≈264), so under an OKLCH marker
+ * the colours sit 20–30° off. Ours is a gradient of OKLCH hues at the colour's
+ * own lightness and chroma (see hue-gradient.ts), so position t shows what
+ * dragging to hue t·360 actually produces.
  */
 const cnHpl = ClassName('hpl');
 const cnApl = ClassName('apl');
@@ -8708,6 +8739,9 @@ class StripController {
     mode_;
     markerElem_;
     fillElem_;
+    /** `L|C|gamut` the hue gradient was last built for — not hue, so a hue drag
+     *  never rebuilds it. */
+    gradientKey_ = '';
     constructor(doc, config) {
         this.kind_ = config.kind;
         this.value_ = config.value;
@@ -8721,7 +8755,7 @@ class StripController {
         config.viewProps.bindTabIndex(root);
         if (config.kind === 'hue') {
             const bar = doc.createElement('div');
-            bar.classList.add(cn('c')); // rainbow gradient comes from native CSS
+            bar.classList.add(cn('c')); // sized by native CSS; background set in refresh_
             root.appendChild(bar);
             this.fillElem_ = bar;
             const marker = doc.createElement('div');
@@ -8768,12 +8802,17 @@ class StripController {
     refresh_() {
         const c = this.value_.rawValue;
         if (this.kind_ === 'hue') {
-            const h = c.areaHue();
-            this.markerElem_.style.left = `${(h / 360) * 100}%`;
-            // Like native: fill the marker with the pure hue at its position, so it
-            // blends into the rainbow (its white ring makes it visible) instead of
-            // showing the muted current colour.
-            this.markerElem_.style.backgroundColor = `hsl(${h} 100% 50%)`;
+            const [l, ch, h] = c.coordsIn('oklch').coords;
+            const gamut = areaStretch(this.mode_.rawValue);
+            const key = `${l}|${ch}|${gamut}`;
+            if (key !== this.gradientKey_) {
+                this.gradientKey_ = key;
+                this.fillElem_.style.background = hueStripGradient(l, ch, gamut);
+            }
+            this.markerElem_.style.left = `${h / 3.6}%`;
+            // Like native: fill the marker with the strip's own colour at its
+            // position, so it blends in (its white ring makes it visible).
+            this.markerElem_.style.backgroundColor = hueStripColor(l, ch, h, gamut);
         }
         else {
             const [l, ch, hh] = c.coordsIn('oklch').coords;

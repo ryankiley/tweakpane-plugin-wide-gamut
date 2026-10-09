@@ -11,6 +11,7 @@ import Color from 'colorjs.io';
 
 import {computeArea, sampleCurve} from '../src/area-compute.js';
 import type {AreaRequest, BoundarySpec} from '../src/area-compute.js';
+import {cjsMaxChroma} from './oracle.js';
 
 const HUES = [0, 17, 60, 95, 140, 200, 250, 300, 330, 359];
 const SIZES: [number, number][] = [
@@ -20,21 +21,6 @@ const SIZES: [number, number][] = [
 	[640, 100],
 	[1024, 768],
 ];
-
-/** True max in-gamut chroma at (L, hue) per colorjs, by fine bisection. */
-function cjsMaxChroma(L: number, hue: number, gamut: string): number {
-	if (!new Color('oklch', [L, 0, hue]).inGamut(gamut)) {
-		return 0;
-	}
-	let lo = 0;
-	let hi = 0.5;
-	for (let i = 0; i < 30; i++) {
-		const mid = (lo + hi) / 2;
-		if (new Color('oklch', [L, mid, hue]).inGamut(gamut)) lo = mid;
-		else hi = mid;
-	}
-	return lo;
-}
 
 test('computeArea never produces NaN / out-of-range output, any hue or size', () => {
 	for (const hue of HUES) {
