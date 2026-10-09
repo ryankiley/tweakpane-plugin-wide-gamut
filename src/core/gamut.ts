@@ -7,7 +7,7 @@
  * difference. This matches colorjs.io's `to(dest, {inGamut: true})` (the plugin
  * uses it for the sRGB swatch / hex fallback), verified by the parity tests.
  */
-import type {Space, Vec3} from './convert.js';
+import type {RgbGamut, Space, Vec3} from './convert.js';
 import {convert, oklchGamutProbe} from './convert.js';
 
 // colorjs's default inGamut epsilon — small slack so a colour exactly on the
@@ -49,7 +49,7 @@ export function maxChromaOf(
 
 /** Largest OKLCH chroma inside `gamut` at lightness `L` and hue `hue` (degrees):
  *  the right edge of the picker plane at that row. */
-export function maxChroma(L: number, hue: number, gamut: Space): number {
+export function maxChroma(L: number, hue: number, gamut: RgbGamut): number {
 	return maxChromaOf(oklchGamutProbe(hue, gamut), L);
 }
 

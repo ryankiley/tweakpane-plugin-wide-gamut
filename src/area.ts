@@ -44,8 +44,8 @@ export class AreaController {
 		config.viewProps.bindTabIndex(root); // focusable, like the native SV palette
 
 		const canvas = doc.createElement('canvas');
-		// `area-canvas` is the hook AreaPicker queries; `tp-svpv_c` (the native SV
-		// canvas class) gives it the exact native crosshair cursor + size.
+		// `tp-svpv_c` (the native SV canvas class) gives it the exact native
+		// crosshair cursor + size; `area-canvas` carries our own touch-action rule.
 		canvas.classList.add('area-canvas', cnSv('c'));
 		root.appendChild(canvas);
 
@@ -56,20 +56,17 @@ export class AreaController {
 
 		this.element = root;
 
-		this.picker_ = new AreaPicker(root, (css, isDragging) => {
-			let next: OklchColor;
-			try {
-				next = this.value_.rawValue.withCss(css);
-			} catch {
-				return;
-			}
-			this.fromArea_ = true;
-			this.value_.rawValue = next;
-			this.fromArea_ = false;
-			if (!isDragging) {
-				this.sync_();
-			}
-		});
+		this.picker_ = new AreaPicker(
+			{root, canvas, thumb},
+			(coords, isDragging) => {
+				this.fromArea_ = true;
+				this.value_.rawValue = this.value_.rawValue.withOklch(coords);
+				this.fromArea_ = false;
+				if (!isDragging) {
+					this.sync_();
+				}
+			},
+		);
 
 		bindValue(this.value_, () => {
 			if (this.fromArea_) {
@@ -77,8 +74,8 @@ export class AreaController {
 			}
 			this.sync_();
 		});
-		// The plane's gamut tracks the mode (sRGB / P3 / Rec2020); narrower gamuts
-		// are then drawn as inner boundary lines.
+		// The plane's gamut tracks the mode (sRGB / P3); narrower gamuts are then
+		// drawn as inner boundary lines.
 		const syncGamut = () =>
 			this.picker_.setStretch(areaStretch(this.mode_.rawValue));
 		syncGamut();
@@ -90,7 +87,7 @@ export class AreaController {
 	}
 
 	private sync_(): void {
-		this.picker_.setValue(this.value_.rawValue.displayCss());
+		this.picker_.setValue(this.value_.rawValue.coords);
 	}
 
 	/** Re-render once the popup is visible (the canvas needs a real layout size). */

@@ -9,7 +9,7 @@
  * round-trip in whatever shape the user supplied, and the verbatim source string
  * is returned unchanged until the colour is actually edited.
  */
-import type {Space} from '../core/convert.js';
+import type {RgbGamut, Space} from '../core/convert.js';
 import {convert} from '../core/convert.js';
 import {inGamut as inGamutOf, maxChroma, toGamut} from '../core/gamut.js';
 import {parse} from '../core/parse.js';
@@ -33,6 +33,11 @@ export type EditMode =
 
 /** Gamuts the picker can test against. */
 export type Gamut = 'srgb' | 'p3';
+
+/** What a value serialises as: an edit mode, or `prophoto-rgb` — accepted as
+ *  input (`color(prophoto-rgb …)`) and round-tripped as such, though it has no
+ *  edit mode of its own (the dropdown shows it as OKLCH). */
+type OutputFormat = EditMode | 'prophoto-rgb';
 
 // Dropdown order: everyday sRGB/CSS formats first, then perceptual, then
 // wide-gamut — familiar-first, matching Figma / DevTools conventions.
@@ -67,7 +72,7 @@ function showsGamutBoundary(mode: EditMode): boolean {
  *  OKLCH/OKLab/LCH/Lab). P3 is the widest gamut real displays render, so the
  *  plane's edge is the displayable limit — the thumb can't slide into colours
  *  the screen can't show. The sRGB boundary stays as the inner reference line. */
-export function areaStretch(mode: EditMode): Space {
+export function areaStretch(mode: EditMode): RgbGamut {
 	return SRGB_BOUND_MODES.includes(mode) ? 'srgb' : 'p3';
 }
 
@@ -96,15 +101,14 @@ export const MODE_LABELS: Record<EditMode, string> = {
 	rec2020: 'Rec2020',
 };
 
-/** Colour-engine space id backing an edit mode (hex + css share the sRGB space). */
-function modeSpaceId(mode: EditMode): Space {
-	return mode === 'hex' || mode === 'css' ? 'srgb' : (mode as Space);
+/** Colour-engine space backing an output format (hex + css share sRGB). */
+function spaceOf(out: OutputFormat): Space {
+	return out === 'hex' || out === 'css' ? 'srgb' : out;
 }
 
 /** A single numeric channel input for a mode. `display = coord * scale`. */
 export interface ChannelDescriptor {
 	key: string;
-	label: string;
 	min: number;
 	max: number;
 	step: number;
@@ -121,61 +125,56 @@ export interface ChannelDescriptor {
  * - HWB:   H 0–360, W/B 0–100               · P3 / Rec2020: R/G/B 0–1
  * (HEX has no numeric channels — it uses a single text field.)
  */
+const RGB_255: ChannelDescriptor[] = [
+	{key: 'r', min: 0, max: 255, step: 1, scale: 255},
+	{key: 'g', min: 0, max: 255, step: 1, scale: 255},
+	{key: 'b', min: 0, max: 255, step: 1, scale: 255},
+];
+const RGB_UNIT: ChannelDescriptor[] = [
+	{key: 'r', min: 0, max: 1, step: 0.01, scale: 1},
+	{key: 'g', min: 0, max: 1, step: 0.01, scale: 1},
+	{key: 'b', min: 0, max: 1, step: 0.01, scale: 1},
+];
+
 export const MODE_CHANNELS: Record<
 	Exclude<EditMode, 'hex'>,
 	ChannelDescriptor[]
 > = {
 	oklch: [
-		{key: 'l', label: 'L', min: 0, max: 100, step: 1, scale: 100},
-		{key: 'c', label: 'C', min: 0, max: MAX_CHROMA, step: 0.01, scale: 1},
-		{key: 'h', label: 'H', min: 0, max: 360, step: 1, scale: 1},
+		{key: 'l', min: 0, max: 100, step: 1, scale: 100},
+		{key: 'c', min: 0, max: MAX_CHROMA, step: 0.01, scale: 1},
+		{key: 'h', min: 0, max: 360, step: 1, scale: 1},
 	],
 	oklab: [
-		{key: 'l', label: 'L', min: 0, max: 100, step: 1, scale: 100},
-		{key: 'a', label: 'a', min: -0.4, max: 0.4, step: 0.01, scale: 1},
-		{key: 'b', label: 'b', min: -0.4, max: 0.4, step: 0.01, scale: 1},
+		{key: 'l', min: 0, max: 100, step: 1, scale: 100},
+		{key: 'a', min: -0.4, max: 0.4, step: 0.01, scale: 1},
+		{key: 'b', min: -0.4, max: 0.4, step: 0.01, scale: 1},
 	],
 	lch: [
-		{key: 'l', label: 'L', min: 0, max: 100, step: 1, scale: 1},
-		{key: 'c', label: 'C', min: 0, max: 150, step: 1, scale: 1},
-		{key: 'h', label: 'H', min: 0, max: 360, step: 1, scale: 1},
+		{key: 'l', min: 0, max: 100, step: 1, scale: 1},
+		{key: 'c', min: 0, max: 150, step: 1, scale: 1},
+		{key: 'h', min: 0, max: 360, step: 1, scale: 1},
 	],
 	lab: [
-		{key: 'l', label: 'L', min: 0, max: 100, step: 1, scale: 1},
-		{key: 'a', label: 'a', min: -125, max: 125, step: 1, scale: 1},
-		{key: 'b', label: 'b', min: -125, max: 125, step: 1, scale: 1},
+		{key: 'l', min: 0, max: 100, step: 1, scale: 1},
+		{key: 'a', min: -125, max: 125, step: 1, scale: 1},
+		{key: 'b', min: -125, max: 125, step: 1, scale: 1},
 	],
-	srgb: [
-		{key: 'r', label: 'R', min: 0, max: 255, step: 1, scale: 255},
-		{key: 'g', label: 'G', min: 0, max: 255, step: 1, scale: 255},
-		{key: 'b', label: 'B', min: 0, max: 255, step: 1, scale: 255},
-	],
+	srgb: RGB_255,
 	// CSS mode = sRGB channels, output as legacy `rgba(r, g, b, a)`.
-	css: [
-		{key: 'r', label: 'R', min: 0, max: 255, step: 1, scale: 255},
-		{key: 'g', label: 'G', min: 0, max: 255, step: 1, scale: 255},
-		{key: 'b', label: 'B', min: 0, max: 255, step: 1, scale: 255},
-	],
+	css: RGB_255,
 	hsl: [
-		{key: 'h', label: 'H', min: 0, max: 360, step: 1, scale: 1},
-		{key: 's', label: 'S', min: 0, max: 100, step: 1, scale: 1},
-		{key: 'l', label: 'L', min: 0, max: 100, step: 1, scale: 1},
+		{key: 'h', min: 0, max: 360, step: 1, scale: 1},
+		{key: 's', min: 0, max: 100, step: 1, scale: 1},
+		{key: 'l', min: 0, max: 100, step: 1, scale: 1},
 	],
 	hwb: [
-		{key: 'h', label: 'H', min: 0, max: 360, step: 1, scale: 1},
-		{key: 'w', label: 'W', min: 0, max: 100, step: 1, scale: 1},
-		{key: 'b', label: 'B', min: 0, max: 100, step: 1, scale: 1},
+		{key: 'h', min: 0, max: 360, step: 1, scale: 1},
+		{key: 'w', min: 0, max: 100, step: 1, scale: 1},
+		{key: 'b', min: 0, max: 100, step: 1, scale: 1},
 	],
-	p3: [
-		{key: 'r', label: 'R', min: 0, max: 1, step: 0.01, scale: 1},
-		{key: 'g', label: 'G', min: 0, max: 1, step: 0.01, scale: 1},
-		{key: 'b', label: 'B', min: 0, max: 1, step: 0.01, scale: 1},
-	],
-	rec2020: [
-		{key: 'r', label: 'R', min: 0, max: 1, step: 0.01, scale: 1},
-		{key: 'g', label: 'G', min: 0, max: 1, step: 0.01, scale: 1},
-		{key: 'b', label: 'B', min: 0, max: 1, step: 0.01, scale: 1},
-	],
+	p3: RGB_UNIT,
+	rec2020: RGB_UNIT,
 };
 
 /** Decimal places a channel is displayed at, from its step — shared by the open
@@ -185,13 +184,28 @@ export function digitsFor(step: number): number {
 }
 
 interface ColorFormat {
-	/** Colour-engine space id to serialise into for the binding. */
-	spaceId: Space;
-	isHex: boolean;
-	/** sRGB serialised as legacy `rgba(r, g, b, a)` — the "CSS" mode. */
-	isCss: boolean;
+	out: OutputFormat;
 	hasAlpha: boolean;
 }
+
+/** The text form of each numeric mode: the function the bare readout is
+ *  wrapped in to make CSS again, and which channels carry a `%` (the L of the
+ *  perceptual spaces; S/L and W/B). */
+const MODE_FORM: Record<
+	Exclude<EditMode, 'hex'>,
+	{open: string; pct: [boolean, boolean, boolean]}
+> = {
+	oklch: {open: 'oklch(', pct: [true, false, false]},
+	oklab: {open: 'oklab(', pct: [true, false, false]},
+	lch: {open: 'lch(', pct: [true, false, false]},
+	lab: {open: 'lab(', pct: [true, false, false]},
+	srgb: {open: 'rgb(', pct: [false, false, false]},
+	css: {open: 'rgba(', pct: [false, false, false]},
+	hsl: {open: 'hsl(', pct: [false, true, true]},
+	hwb: {open: 'hwb(', pct: [false, true, true]},
+	p3: {open: 'color(display-p3 ', pct: [false, false, false]},
+	rec2020: {open: 'color(rec2020 ', pct: [false, false, false]},
+};
 
 type Coords3 = [number, number, number];
 
@@ -372,9 +386,7 @@ export class OklchColor {
 			source.includes('/');
 
 		const format: ColorFormat = {
-			spaceId: isHex ? 'srgb' : sid,
-			isHex,
-			isCss,
+			out: isHex ? 'hex' : isCss ? 'css' : sid,
 			hasAlpha,
 		};
 		return new OklchColor(coords, alpha, format, source, achromatic(coords[1]));
@@ -388,13 +400,6 @@ export class OklchColor {
 		}
 	}
 
-	/** Predicate for `accept`: is this a string the model can parse? */
-	static isColorString(value: unknown): value is string {
-		return (
-			typeof value === 'string' && OklchColor.tryFromString(value) !== null
-		);
-	}
-
 	// ---- Serialisation ------------------------------------------------------
 
 	/** CSS string for the binding, in the remembered/selected output format. */
@@ -403,26 +408,24 @@ export class OklchColor {
 			return this.source;
 		}
 		const f = this.format;
-		if (f.isHex) {
+		if (f.out === 'hex') {
 			// Always full-length hex (#ffffff, never #fff); 8 digits when alpha < 1.
-			return serialize(toGamut(this.oklch(), 'srgb'), 'srgb', this.outAlpha(), {
-				format: 'hex',
-			});
+			return this.gamutCss();
 		}
-		if (f.isCss) {
+		if (f.out === 'css') {
 			// Legacy comma syntax, always 4-arg: `rgba(r, g, b, a)`.
 			const c = toGamut(this.oklch(), 'srgb');
 			const ch = (i: number) => Math.round(num(c[i]) * 255);
 			return `rgba(${ch(0)}, ${ch(1)}, ${ch(2)}, ${+this.alpha.toFixed(2)})`;
 		}
-		if (f.spaceId === 'srgb') {
+		if (f.out === 'srgb') {
 			// 0–255 integer rgb() (the form people expect), space-separated.
 			const c = toGamut(this.oklch(), 'srgb');
 			const ch = (i: number) => Math.round(num(c[i]) * 255);
 			const a = f.hasAlpha ? ` / ${+this.alpha.toFixed(3)}` : '';
 			return `rgb(${ch(0)} ${ch(1)} ${ch(2)}${a})`;
 		}
-		return serialize(this.outputCoords(f.spaceId), f.spaceId, this.outAlpha(), {
+		return serialize(this.outputCoords(f.out), f.out, this.outAlpha(), {
 			precision: 4,
 		});
 	}
@@ -439,52 +442,25 @@ export class OklchColor {
 		if (mode === 'hex') {
 			return this.gamutCss();
 		}
-		const chans = MODE_CHANNELS[mode];
 		const v = this.channelValues(mode);
-		const s = (i: number): string => v[i].toFixed(digitsFor(chans[i].step));
+		const s = MODE_CHANNELS[mode].map(
+			(ch, i) =>
+				v[i].toFixed(digitsFor(ch.step)) + (MODE_FORM[mode].pct[i] ? '%' : ''),
+		);
 		if (mode === 'css') {
 			// CSS mode IS the legacy function form, so the row shows it in full
 			// (always 4-arg) rather than as bare channels.
-			return `rgba(${s(0)}, ${s(1)}, ${s(2)}, ${+this.alpha.toFixed(2)})`;
+			return `rgba(${s[0]}, ${s[1]}, ${s[2]}, ${+this.alpha.toFixed(2)})`;
 		}
 		const a = this.format.hasAlpha ? ` / ${this.alpha.toFixed(2)}` : '';
-		switch (mode) {
-			case 'oklch':
-			case 'oklab':
-			case 'lch':
-			case 'lab':
-				return `${s(0)}% ${s(1)} ${s(2)}${a}`; // L is a percentage
-			case 'hsl':
-			case 'hwb':
-				return `${s(0)} ${s(1)}% ${s(2)}%${a}`; // S/L or W/B are percentages
-			case 'srgb':
-			case 'p3':
-			case 'rec2020':
-				return `${s(0)} ${s(1)} ${s(2)}${a}`; // bare R G B
-		}
+		return `${s.join(' ')}${a}`;
 	}
 
 	/** Re-wrap the bare `readoutString()` channels into a full CSS string for the
 	 *  current mode, so a typed edit of the collapsed row round-trips. */
 	wrapReadout(text: string): string {
-		switch (this.mode) {
-			case 'hex':
-				return text;
-			case 'srgb':
-				return `rgb(${text})`;
-			case 'css':
-				return `rgba(${text})`;
-			case 'hsl':
-				return `hsl(${text})`;
-			case 'hwb':
-				return `hwb(${text})`;
-			case 'p3':
-				return `color(display-p3 ${text})`;
-			case 'rec2020':
-				return `color(rec2020 ${text})`;
-			default:
-				return `${this.mode}(${text})`; // oklch / oklab / lch / lab
-		}
+		const mode = this.mode;
+		return mode === 'hex' ? text : `${MODE_FORM[mode].open}${text})`;
 	}
 
 	/** Full-gamut CSS (`oklch(…)`) for painting the swatch in modern browsers. */
@@ -503,19 +479,14 @@ export class OklchColor {
 	// ---- Channel access -----------------------------------------------------
 
 	/** Canonical coords converted into `mode`'s space (NaN coalesced to 0). */
-	coordsIn(mode: EditMode): {coords: Coords3; alpha: number} {
-		const sid = modeSpaceId(mode);
-		const c =
-			sid === 'oklch' ? this.oklch() : convert(this.oklch(), 'oklch', sid);
-		return {
-			coords: [num(c[0]), num(c[1]), num(c[2])],
-			alpha: this.alpha,
-		};
+	coordsIn(mode: EditMode): Coords3 {
+		const c = convert(this.oklch(), 'oklch', spaceOf(mode));
+		return [num(c[0]), num(c[1]), num(c[2])];
 	}
 
 	/** Per-channel values in display units for `mode`'s numeric inputs. */
 	channelValues(mode: Exclude<EditMode, 'hex'>): number[] {
-		const {coords} = this.coordsIn(mode);
+		const coords = this.coordsIn(mode);
 		return MODE_CHANNELS[mode].map((ch, i) => {
 			const v = coords[i] * ch.scale;
 			// Snap to 0 anything that rounds to 0 at the channel's display precision
@@ -532,11 +503,9 @@ export class OklchColor {
 		index: number,
 		displayValue: number,
 	): OklchColor {
-		const sid = modeSpaceId(mode);
-		const {coords, alpha} = this.coordsIn(mode);
-		const next: Coords3 = [coords[0], coords[1], coords[2]];
+		const next = this.coordsIn(mode);
 		next[index] = displayValue / MODE_CHANNELS[mode][index].scale;
-		const k = convert(next, sid, 'oklch');
+		const k = convert(next, spaceOf(mode), 'oklch');
 		const c: Coords3 = [num(k[0]), num(k[1]), num(k[2])];
 		// Setting a hue channel is a choice; so is giving the colour chroma (its
 		// hue now shows). Anything else on a grey leaves the hue as unchosen.
@@ -544,7 +513,7 @@ export class OklchColor {
 			this.huePowerless &&
 			MODE_CHANNELS[mode][index].key !== 'h' &&
 			achromatic(c[1]);
-		return new OklchColor(c, alpha, this.format, null, powerless);
+		return new OklchColor(c, this.alpha, this.format, null, powerless);
 	}
 
 	withAlpha(alpha: number): OklchColor {
@@ -570,16 +539,8 @@ export class OklchColor {
 
 	/** The edit mode the value currently serialises as (its output format). */
 	get mode(): EditMode {
-		if (this.format.isHex) {
-			return 'hex';
-		}
-		if (this.format.isCss) {
-			return 'css';
-		}
-		// EditMode values are engine space ids, so a known space maps straight to
-		// its mode; anything else (prophoto-rgb, …) falls back to OKLCH.
-		const id = this.format.spaceId;
-		return (EDIT_MODES as string[]).includes(id) ? (id as EditMode) : 'oklch';
+		const out = this.format.out;
+		return out === 'prophoto-rgb' ? 'oklch' : out;
 	}
 
 	/**
@@ -600,12 +561,7 @@ export class OklchColor {
 		return new OklchColor(
 			coords,
 			this.alpha,
-			{
-				spaceId: modeSpaceId(mode),
-				isHex: mode === 'hex',
-				isCss: mode === 'css',
-				hasAlpha: this.format.hasAlpha,
-			},
+			{out: mode, hasAlpha: this.format.hasAlpha},
 			null,
 			this.huePowerless,
 		);
@@ -628,7 +584,7 @@ export class OklchColor {
 	 * the same ratio past it (nothing is clamped). Without `gamut`, chroma is held
 	 * as is.
 	 */
-	withAreaHue(hue: number, gamut?: Space): OklchColor {
+	withAreaHue(hue: number, gamut?: RgbGamut): OklchColor {
 		// Same as withAlpha: a non-finite hue would land on hue 0 (green → pink),
 		// and it is never a choice, so it is a no-op.
 		if (!Number.isFinite(hue)) {
@@ -659,12 +615,6 @@ export class OklchColor {
 			source,
 			powerless,
 		);
-	}
-
-	/** Achromatic: chroma below the powerless threshold, so the hue carries no
-	 *  colour information. */
-	get isAchromatic(): boolean {
-		return achromatic(this.coords[1]);
 	}
 
 	/**
@@ -701,15 +651,11 @@ export class OklchColor {
 			: this;
 	}
 
-	/** Adopt coords from an arbitrary CSS string (e.g. the area picker's onChange). */
-	withCss(css: string): OklchColor {
-		const p = parse(css);
-		if (!p) {
-			return this;
-		}
-		const k = convert(p.coords, p.space, 'oklch');
+	/** Adopt OKLCH coords (the area plane's onChange). A position on the plane
+	 *  is a chosen hue, so the hue counts as settled. */
+	withOklch(coords: Readonly<Coords3>): OklchColor {
 		return new OklchColor(
-			[num(k[0]), num(k[1]), num(k[2])],
+			[num(coords[0]), num(coords[1]), num(coords[2])],
 			this.alpha,
 			this.format,
 			null,
@@ -741,7 +687,7 @@ export class OklchColor {
 		);
 		const k = convert(
 			[rounded[0], rounded[1], rounded[2]],
-			modeSpaceId(mode),
+			spaceOf(mode),
 			'oklch',
 		);
 		return [num(k[0]), num(k[1]), num(k[2])];
@@ -780,9 +726,7 @@ export class OklchColor {
 		return (
 			// Output format is part of identity, so switching mode counts as a change
 			// (re-serialises + re-renders the collapsed readout).
-			this.format.spaceId === other.format.spaceId &&
-			this.format.isHex === other.format.isHex &&
-			this.format.isCss === other.format.isCss &&
+			this.format.out === other.format.out &&
 			this.format.hasAlpha === other.format.hasAlpha &&
 			Math.abs(this.coords[0] - other.coords[0]) < e &&
 			Math.abs(this.coords[1] - other.coords[1]) < e &&

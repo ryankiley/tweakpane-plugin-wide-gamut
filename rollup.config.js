@@ -1,13 +1,11 @@
 /* eslint-env node */
 
-import Alias from '@rollup/plugin-alias';
 import {nodeResolve} from '@rollup/plugin-node-resolve';
 import Replace from '@rollup/plugin-replace';
+import Terser from '@rollup/plugin-terser';
 import Typescript from '@rollup/plugin-typescript';
 import Autoprefixer from 'autoprefixer';
 import Postcss from 'postcss';
-import Cleanup from 'rollup-plugin-cleanup';
-import Terser from '@rollup/plugin-terser';
 import Sass from 'sass';
 
 import Package from './package.json';
@@ -25,15 +23,7 @@ async function compileCss() {
 }
 
 function getPlugins(css, shouldMinify) {
-	const plugins = [
-		Alias({
-			entries: [
-				{
-					find: '@tweakpane/core',
-					replacement: './node_modules/@tweakpane/core/dist/index.js',
-				},
-			],
-		}),
+	return [
 		Typescript({
 			tsconfig: 'src/tsconfig.json',
 			// Emit native `#private` fields (ES2022) so no tslib `__classPrivateField*`
@@ -46,16 +36,7 @@ function getPlugins(css, shouldMinify) {
 			__css__: css,
 			preventAssignment: false,
 		}),
-	];
-	if (shouldMinify) {
-		plugins.push(Terser());
-	}
-	return [
-		...plugins,
-		// https://github.com/microsoft/tslib/issues/47
-		Cleanup({
-			comments: 'none',
-		}),
+		...(shouldMinify ? [Terser()] : []),
 	];
 }
 
@@ -85,6 +66,12 @@ export default async () => {
 			},
 		},
 		plugins: getPlugins(css, production),
+		// `@tweakpane/core` has no top-level side effects, but rollup can't tell and
+		// would keep all 136 of its modules (every built-in blade and picker). Telling
+		// it so lets the unused ones drop: the bundle is a third of the size.
+		treeshake: {
+			moduleSideEffects: (id) => !id.includes('@tweakpane/core'),
+		},
 
 		// Suppress `Circular dependency` warning
 		onwarn(warning, rollupWarn) {

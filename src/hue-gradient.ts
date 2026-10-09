@@ -13,7 +13,7 @@
  * the interpolation space between them is immaterial, so the gradient stays
  * plain (no `in oklch`): any browser that parses `oklch()` renders it.
  */
-import type {Space} from './core/convert.js';
+import type {RgbGamut} from './core/convert.js';
 import {maxChroma} from './core/gamut.js';
 
 /** Stop spacing in degrees. */
@@ -37,7 +37,7 @@ export function chromaFraction(
 	L: number,
 	C: number,
 	hue: number,
-	gamut: Space,
+	gamut: RgbGamut,
 ): number {
 	const edge = maxChroma(L, hue, gamut);
 	if (edge <= 0) {
@@ -55,7 +55,7 @@ export function hueStripColor(
 	L: number,
 	fraction: number,
 	hue: number,
-	gamut: Space,
+	gamut: RgbGamut,
 ): string {
 	return `oklch(${fmt(L)} ${fmt(fraction * maxChroma(L, hue, gamut))} ${fmt(
 		hue,
@@ -66,7 +66,7 @@ export function hueStripColor(
 export function hueStripGradient(
 	L: number,
 	fraction: number,
-	gamut: Space,
+	gamut: RgbGamut,
 ): string {
 	const stops: string[] = [];
 	for (let h = 0; h <= 360; h += HUE_STEP) {

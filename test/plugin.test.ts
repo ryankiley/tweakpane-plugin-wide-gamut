@@ -53,7 +53,7 @@ test('accept claims every colour string the picker can edit', () => {
 
 test('accept declines a string that merely contains a colour', () => {
 	// The picker's *text field* recovers a colour from all of these (see
-	// `OklchColor.isColorString`), and should keep doing so. `accept` must not:
+	// `OklchColor.tryFromString`), and should keep doing so. `accept` must not:
 	// claiming one of these bindings swaps a text input for a colour picker and
 	// then discards everything but the extracted token on the first write.
 	const notColors = [
@@ -67,9 +67,8 @@ test('accept declines a string that merely contains a colour', () => {
 	notColors.forEach((s) => {
 		assert.equal(accepts(s), false, `should decline ${s}`);
 		// ...but the text field still recovers them, so the two stay distinct.
-		assert.equal(
-			OklchColor.isColorString(s),
-			true,
+		assert.ok(
+			OklchColor.tryFromString(s),
 			`text field should still recover ${s}`,
 		);
 	});
