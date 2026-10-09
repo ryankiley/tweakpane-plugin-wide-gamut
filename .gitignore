@@ -124,3 +124,7 @@ dist
 .pnp.*
 
 
+
+# Built by `npm run build:demo`; the Pages workflow regenerates them on deploy
+/docs/tweakpane-plugin-wide-gamut.js
+/docs/tweakpane.min.js
