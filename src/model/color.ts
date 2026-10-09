@@ -582,11 +582,6 @@ export class OklchColor {
 		);
 	}
 
-	/** OKLCH hue (degrees) — the fixed axis of the locked L×C area plane. */
-	areaHue(): number {
-		return this.coords[2];
-	}
-
 	/** New colour with the area plane's fixed hue (OKLCH H) set to `hue` (degrees). */
 	withAreaHue(hue: number): OklchColor {
 		return new OklchColor(

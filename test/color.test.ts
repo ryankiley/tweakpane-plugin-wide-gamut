@@ -185,10 +185,9 @@ test('isColorString accepts colours and rejects non-colours', () => {
 	assert.equal(OklchColor.isColorString(42), false);
 });
 
-test('areaHue / withAreaHue operate on the OKLCH hue axis', () => {
+test('withAreaHue sets the OKLCH hue axis', () => {
 	const c = OklchColor.fromString('oklch(0.7 0.1 200)');
-	approx(c.areaHue(), 200);
-	approx(c.withAreaHue(120).areaHue(), 120);
+	approx(c.withAreaHue(120).coordsIn('oklch').coords[2], 120);
 });
 
 test('every non-hex mode has three channel descriptors', () => {

@@ -66,7 +66,7 @@ const BOUNDARIES: {
  * probe is built once per hue/gamut and reused across every lightness — that
  * reuse is the bulk of the per-frame saving.
  */
-function maxChroma(
+export function maxChroma(
 	probe: (L: number, C: number) => boolean,
 	L: number,
 	ceiling = CHROMA_CEILING,
