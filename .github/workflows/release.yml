@@ -1,0 +1,66 @@
+# Publish to npm when a GitHub Release is published, using npm trusted publishing
+# (OIDC): no token secret, and npm attaches provenance on its own.
+#
+# One-time setup on npmjs.com → tweakpane-plugin-wide-gamut → Settings → Trusted
+# publishing: GitHub Actions, owner `ryankiley`, repository
+# `tweakpane-plugin-wide-gamut`, workflow `release.yml`.
+#
+# Release flow: bump package.json, merge, then publish a GitHub Release for vX.Y.Z.
+# To publish a release whose run is missing or failed, run this workflow by hand
+# with that tag.
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v0.3.0)
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TAG }}
+
+      # Trusted publishing needs npm 11.5.1+, which ships with Node 24.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$PKG" != "${TAG#v}" ]; then
+            echo "::error::tag '$TAG' does not match package.json version '$PKG'"
+            exit 1
+          fi
+
+      - name: Skip if already published
+        id: check
+        run: |
+          if npm view "tweakpane-plugin-wide-gamut@${TAG#v}" version >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${TAG#v} is already on npm, skipping publish."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # No committed lockfile (library convention). `prepare` builds dist on install,
+      # and `prepublishOnly` runs lint + unit tests before the tarball is made.
+      - if: steps.check.outputs.skip == 'false'
+        run: npm install
+
+      - if: steps.check.outputs.skip == 'false'
+        run: npm publish --access public
