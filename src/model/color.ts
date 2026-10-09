@@ -478,10 +478,13 @@ export class OklchColor {
 
 	// ---- Channel access -----------------------------------------------------
 
-	/** Canonical coords converted into `mode`'s space (NaN coalesced to 0). */
+	/** The coords `mode` shows and writes: the same gamut-mapped values
+	 *  `serialize()` emits for the bounded spaces (so the inputs, the readout and
+	 *  the gamut label describe the colour the binding actually holds, not a
+	 *  per-channel clamp of a colour it can't express), raw for the perceptual
+	 *  ones. NaN coalesced to 0. */
 	coordsIn(mode: EditMode): Coords3 {
-		const c = convert(this.oklch(), 'oklch', spaceOf(mode));
-		return [num(c[0]), num(c[1]), num(c[2])];
+		return this.outputCoords(spaceOf(mode));
 	}
 
 	/** Per-channel values in display units for `mode`'s numeric inputs. */

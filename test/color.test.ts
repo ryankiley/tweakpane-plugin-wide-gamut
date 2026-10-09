@@ -233,6 +233,26 @@ test('gamut label agrees with the displayed numbers (no flip at the P3 edge)', (
 	assert.equal(a.gamutLabel(), b.gamutLabel());
 });
 
+test('inputs and readout show the gamut-mapped colour the binding writes', () => {
+	// A colour the mode's space can't hold (typed into the text field): the
+	// binding gamut-maps it, so the channel inputs, the collapsed readout and the
+	// gamut label must describe that mapped colour — not per-channel clamps of
+	// the raw conversion, which used to disagree with the written string.
+	const p3 = OklchColor.fromString('color(display-p3 0 0 1)').withOklch([0.7, 0.333, 252]);
+	const wrote = /^color\(display-p3 ([\d.]+) ([\d.]+) ([\d.]+)\)$/.exec(p3.serialize());
+	assert.ok(wrote, p3.serialize());
+	p3.channelValues('p3').forEach((v, i) => approx(v, Number(wrote[i + 1]), 1e-3));
+	assert.equal(p3.readoutString(), p3.channelValues('p3').map((v) => v.toFixed(2)).join(' '));
+	assert.equal(p3.gamutLabel(), 'P3');
+
+	const rgb = OklchColor.fromString('rgb(0 0 0)').withOklch([0.8, 0.3, 150]);
+	const wroteRgb = /^rgb\((\d+) (\d+) (\d+)\)$/.exec(rgb.serialize());
+	assert.ok(wroteRgb, rgb.serialize());
+	rgb.channelValues('srgb').forEach((v, i) => approx(v, Number(wroteRgb[i + 1]), 0.5));
+	// Editing a channel edits the colour the inputs show (the mapped one).
+	approx(rgb.withChannel('srgb', 0, 10).channelValues('srgb')[0], 10, 0.5);
+});
+
 test('sRGB-bound modes never report P3/wide (a dragged-wide colour reads sRGB)', () => {
 	// A wide colour reached by dragging the area while in an sRGB-bound mode: the
 	// binding output clamps to sRGB, so the readout must say sRGB.
