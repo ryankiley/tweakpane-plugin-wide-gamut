@@ -102,7 +102,11 @@ export class StripController {
 
 	private onPoint_(ev: PointerHandlerEvent): void {
 		const point = ev.data.point;
-		if (!point) {
+		// A zero-width box means the strip has no layout: the popup collapsed
+		// mid-drag (Escape, or a pointer-down outside), but PointerHandler keeps
+		// delivering document mouse events until the button is released. Dividing
+		// by that width would write a NaN alpha / hue 0 into the bound value.
+		if (!point || !(ev.data.bounds.width > 0)) {
 			return;
 		}
 		const t = Math.max(0, Math.min(1, point.x / ev.data.bounds.width));
