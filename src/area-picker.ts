@@ -2,7 +2,7 @@
  * Interactive OKLCH lightness×chroma plane: a canvas gradient with the gamut
  * boundary drawn over it, a draggable thumb, and keyboard nudging. The plane is
  * always a fixed-hue L×C slice (see ./area-compute for the raster); this file is
- * purely the DOM/interaction layer.
+ * purely the DOM/interaction layer, and speaks OKLCH coord triples in and out.
  *
  * State is two plain coord triples — `#value` (committed) and `#live` (the
  * optimistic value mid-drag, so the thumb tracks the pointer without waiting for
@@ -16,22 +16,14 @@ import {
 	computeArea,
 	sampleCurve,
 } from './area-compute.js';
-import type {Space} from './core/convert.js';
-import {convert} from './core/convert.js';
-import {parse} from './core/parse.js';
+import type {RgbGamut} from './core/convert.js';
 
-type Coords3 = [number, number, number];
+export type Coords3 = [number, number, number];
 
 /** Chroma span assumed for the canvas before the first frame builds the curve. */
 const FALLBACK_CHROMA = 0.37;
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
-const finite = (v: number | null | undefined): number =>
-	v == null || Number.isNaN(v) ? 0 : v;
-
-/** Canonical OKLCH CSS the plane emits for a colour (NaN-coalesced coords). */
-const oklchStr = (c: Coords3): string =>
-	`oklch(${finite(c[0])} ${finite(c[1])} ${finite(c[2])})`;
 
 /** Whether a 2D canvas can be backed by Display-P3 (probe the real API). */
 const wideCanvas = (() => {
@@ -63,19 +55,27 @@ function strokeBoundary(ctx: CanvasRenderingContext2D, b: BoundarySpec): void {
 	ctx.restore();
 }
 
-/** Interactive OKLCH L×C plane bound to a host element + an onChange callback. */
+/** The plane's elements: the host (pointer + keyboard target, carries the
+ *  `--thumb-x/y` custom properties), the canvas, and the thumb inside the host. */
+export interface AreaElements {
+	root: HTMLElement;
+	canvas: HTMLCanvasElement;
+	thumb: HTMLElement;
+}
+
+/** Interactive OKLCH L×C plane over `els`, reporting edits to `onChange`. */
 export class AreaPicker {
 	#abort = new AbortController();
-	#root: HTMLElement | null;
-	#canvas: HTMLCanvasElement | null;
-	#emit: (css: string, dragging: boolean) => void;
+	#root: HTMLElement;
+	#canvas: HTMLCanvasElement;
+	#emit: (coords: Coords3, dragging: boolean) => void;
 
 	#value: Coords3 | null = null; // committed colour
 	#live: Coords3 | null = null; // optimistic colour while dragging
 	#curve: Float64Array | null = null; // per-lightness chroma ceiling (last frame)
 	// The gamut the plane is stretched to (the current mode's own gamut). Drives
 	// the gradient extent and which narrower gamuts are drawn as boundary lines.
-	#stretch: Space = 'p3';
+	#stretch: RgbGamut = 'p3';
 	#paintedHue = NaN; // hue of the last raster; -repaint only when it changes
 	#raf: number | null = null;
 	// Pointer grab offset (thumb-centre → cursor), in normalised plane units.
@@ -88,18 +88,14 @@ export class AreaPicker {
 	#offH = 0;
 
 	constructor(
-		root: HTMLElement | null,
-		onChange: (css: string, dragging: boolean) => void,
+		els: AreaElements,
+		onChange: (coords: Coords3, dragging: boolean) => void,
 	) {
-		this.#root = root;
-		this.#canvas =
-			root?.querySelector<HTMLCanvasElement>('.area-canvas') ?? null;
+		this.#root = els.root;
+		this.#canvas = els.canvas;
 		this.#emit = onChange;
-		if (!root || !this.#canvas) {
-			return;
-		}
-		this.#bindPointer(root);
-		this.#bindKeyboard(root);
+		this.#bindPointer(els.root, els.thumb);
+		this.#bindKeyboard(els.root);
 		// Repaint once the canvas actually has a laid-out size, and on any later
 		// resize. The first frame can otherwise rasterise against a still-unsized
 		// canvas (clientWidth 0), fall back to a default width the browser then
@@ -119,18 +115,15 @@ export class AreaPicker {
 
 	// ── Public API ───────────────────────────────────────────────────────────
 
-	/** Adopt a colour from any CSS string, projected onto the OKLCH plane. */
-	setValue(css: string): void {
-		const parsed = parse(css);
-		this.#value = parsed
-			? (convert(parsed.coords, parsed.space, 'oklch').map(finite) as Coords3)
-			: null;
+	/** Show `coords` (OKLCH [L, C, H]) as the committed colour. */
+	setValue(coords: Readonly<Coords3>): void {
+		this.#value = [coords[0], coords[1], coords[2]];
 		this.#sync();
 	}
 
 	/** Stretch the plane to `gamut` (the current mode's gamut). The gradient extent
 	 *  and the inner boundary lines both follow from it. */
-	setStretch(gamut: Space): void {
+	setStretch(gamut: RgbGamut): void {
 		if (gamut !== this.#stretch) {
 			this.#stretch = gamut;
 			this.#schedulePaint(); // the gradient stretch + boundaries change with it
@@ -158,7 +151,7 @@ export class AreaPicker {
 		if (dragging) {
 			this.#live = coords;
 		}
-		this.#emit(oklchStr(coords), dragging);
+		this.#emit(coords, dragging);
 		this.#sync();
 	}
 
@@ -169,7 +162,7 @@ export class AreaPicker {
 		// canvas, and `touch-action: none` blocks touch-scroll — so the drag is
 		// isolated without inert-ing the page (which would blur the focused mode
 		// dropdown mid-gesture and swallow the first click after a mode switch).
-		this.#root?.classList.toggle('dragging', this.#live != null);
+		this.#root.classList.toggle('dragging', this.#live != null);
 		// The gradient only depends on hue; skip the repaint within a slice.
 		if ((this.#active()?.[2] ?? 0) !== this.#paintedHue) {
 			this.#schedulePaint();
@@ -183,14 +176,13 @@ export class AreaPicker {
 		}
 		const ceiling = this.#chromaAt(c[0]);
 		const x = ceiling > 0 ? Math.min(100, (c[1] / ceiling) * 100) : 0;
-		this.#root?.style.setProperty('--thumb-x', `${x}%`);
-		this.#root?.style.setProperty('--thumb-y', `${(1 - c[0]) * 100}%`);
+		this.#root.style.setProperty('--thumb-x', `${x}%`);
+		this.#root.style.setProperty('--thumb-y', `${(1 - c[0]) * 100}%`);
 	}
 
 	// ── Pointer + keyboard ─────────────────────────────────────────────────────
 
-	#bindPointer(root: HTMLElement): void {
-		const thumb = root.querySelector<HTMLElement>('.area-thumb');
+	#bindPointer(root: HTMLElement, thumb: HTMLElement): void {
 		const opts = {signal: this.#abort.signal};
 		let rect: DOMRect | null = null;
 		let activeId: number | null = null;
@@ -236,7 +228,7 @@ export class AreaPicker {
 			}
 			if (this.#live) {
 				// Commit the final value as a non-drag change so text inputs settle.
-				this.#emit(oklchStr(this.#live), false);
+				this.#emit(this.#live, false);
 			}
 			this.#live = null;
 			this.#grab = {x: 0, y: 0};
@@ -256,8 +248,7 @@ export class AreaPicker {
 					/* ignore — window listeners cover delivery */
 				}
 				rect = root.getBoundingClientRect();
-				const onThumb =
-					thumb && (e.target === thumb || thumb.contains(e.target as Node));
+				const onThumb = e.target === thumb || thumb.contains(e.target as Node);
 				if (onThumb) {
 					// Grab: record cursor→thumb-centre offset so the thumb doesn't jump.
 					const t = thumb.getBoundingClientRect();
@@ -331,7 +322,7 @@ export class AreaPicker {
 	#paint(): void {
 		const canvas = this.#canvas;
 		const c = this.#active();
-		if (!canvas || !c) {
+		if (!c) {
 			return;
 		}
 		this.#paintedHue = c[2];

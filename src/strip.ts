@@ -123,7 +123,7 @@ export class StripController {
 	private refresh_(): void {
 		const c = this.value_.rawValue;
 		if (this.kind_ === 'hue') {
-			const [l0, ch, h] = c.coordsIn('oklch').coords;
+			const [l0, ch, h] = c.coordsIn('oklch');
 			const gamut = areaStretch(this.mode_.rawValue);
 			const l = Number(l0.toFixed(3));
 			const f = chromaFraction(l, ch, h, gamut);
@@ -139,7 +139,7 @@ export class StripController {
 			// colour itself — the swatch and plane show the real one.
 			this.markerElem_.style.backgroundColor = hueStripColor(l, f, h, gamut);
 		} else {
-			const [l, ch, hh] = c.coordsIn('oklch').coords;
+			const [l, ch, hh] = c.coordsIn('oklch');
 			this.fillElem_.style.background = `linear-gradient(to right, oklch(${l} ${ch} ${hh} / 0), oklch(${l} ${ch} ${hh} / 1))`;
 			this.markerElem_.style.left = `${c.alpha * 100}%`;
 			this.markerElem_.style.backgroundColor = c.displayCss();

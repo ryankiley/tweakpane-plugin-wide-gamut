@@ -16,6 +16,8 @@ import {
 
 const approx = (a: number, b: number, tol = 1e-2): void =>
 	assert.ok(Math.abs(a - b) <= tol, `expected ${a} ≈ ${b} (±${tol})`);
+/** Achromatic at the model's powerless-chroma threshold. */
+const isGrey = (c: OklchColor): boolean => c.coords[1] < 1e-4;
 
 test('verbatim source is returned until edited', () => {
 	assert.equal(
@@ -177,18 +179,17 @@ test('equals treats output format as part of identity', () => {
 	assert.equal(a.equals(b.withFormat('srgb')), false);
 });
 
-test('isColorString accepts colours and rejects non-colours', () => {
-	assert.equal(OklchColor.isColorString('red'), true);
-	assert.equal(OklchColor.isColorString('#fff'), true);
-	assert.equal(OklchColor.isColorString('oklch(0.7 0.1 200)'), true);
-	assert.equal(OklchColor.isColorString('definitely-not-a-colour'), false);
-	assert.equal(OklchColor.isColorString(''), false);
-	assert.equal(OklchColor.isColorString(42), false);
+test('tryFromString accepts colours and rejects non-colours', () => {
+	assert.ok(OklchColor.tryFromString('red'));
+	assert.ok(OklchColor.tryFromString('#fff'));
+	assert.ok(OklchColor.tryFromString('oklch(0.7 0.1 200)'));
+	assert.equal(OklchColor.tryFromString('definitely-not-a-colour'), null);
+	assert.equal(OklchColor.tryFromString(''), null);
 });
 
 test('withAreaHue sets the OKLCH hue axis', () => {
 	const c = OklchColor.fromString('oklch(0.7 0.1 200)');
-	approx(c.withAreaHue(120).coordsIn('oklch').coords[2], 120);
+	approx(c.withAreaHue(120).coordsIn('oklch')[2], 120);
 });
 
 test('every non-hex mode has three channel descriptors', () => {
@@ -235,7 +236,7 @@ test('gamut label agrees with the displayed numbers (no flip at the P3 edge)', (
 test('sRGB-bound modes never report P3/wide (a dragged-wide colour reads sRGB)', () => {
 	// A wide colour reached by dragging the area while in an sRGB-bound mode: the
 	// binding output clamps to sRGB, so the readout must say sRGB.
-	const wideInHex = OklchColor.fromString('#ff0000').withCss('oklch(0.8 0.3 150)');
+	const wideInHex = OklchColor.fromString('#ff0000').withOklch([0.8, 0.3, 150]);
 	assert.equal(wideInHex.mode, 'hex');
 	assert.equal(wideInHex.gamutLabel(), 'sRGB');
 	// The same wide colour in a wide mode reports its real gamut, not sRGB.
@@ -327,13 +328,13 @@ test('withAreaHue keeps a colour past the plane edge at the same ratio past it',
 test('withAreaHue keeps a grey grey and alpha/format intact', () => {
 	const grey = OklchColor.fromString('#80808080');
 	const moved = grey.withAreaHue(90, 'srgb');
-	assert.ok(moved.isAchromatic);
+	assert.ok(isGrey(moved));
 	approx(moved.areaHue(), 90);
 	assert.equal(moved.hasAlpha, true);
 	approx(moved.alpha, 128 / 255, 1e-3);
 	// At the black/white tips the ceiling is 0 on both sides: stays achromatic.
-	assert.ok(OklchColor.fromString('#000').withAreaHue(90, 'p3').isAchromatic);
-	assert.ok(OklchColor.fromString('#fff').withAreaHue(90, 'p3').isAchromatic);
+	assert.ok(isGrey(OklchColor.fromString('#000').withAreaHue(90, 'p3')));
+	assert.ok(isGrey(OklchColor.fromString('#fff').withAreaHue(90, 'p3')));
 });
 
 test('hueIsPowerless: a parsed grey, until something sets a hue', () => {
@@ -350,7 +351,7 @@ test('hueIsPowerless: a parsed grey, until something sets a hue', () => {
 	// … and anything that sets one settles it.
 	assert.ok(!grey.withAreaHue(200).hueIsPowerless);
 	assert.ok(!grey.withAreaHue(200, 'srgb').hueIsPowerless);
-	assert.ok(!grey.withCss('oklch(0.6 0 200)').hueIsPowerless);
+	assert.ok(!grey.withOklch([0.6, 0, 200]).hueIsPowerless);
 	assert.ok(!grey.withRetainedHue(200).hueIsPowerless);
 	assert.ok(!grey.withChannel('oklch', 2, 200).hueIsPowerless); // H channel
 	assert.ok(!grey.withChannel('hsl', 0, 200).hueIsPowerless); // HSL hue
@@ -361,7 +362,7 @@ test('inheritHue: a typed grey takes the hue the picker is on', () => {
 	const prev = OklchColor.fromString('oklch(0.6 0.15 200)');
 	const typed = OklchColor.fromString('#808080').inheritHue(prev).asEdited();
 	approx(typed.areaHue(), 200);
-	assert.ok(typed.isAchromatic);
+	assert.ok(isGrey(typed));
 	assert.ok(!typed.hueIsPowerless);
 	// A typed chromatic colour keeps its own hue.
 	approx(OklchColor.fromString('#ff0000').inheritHue(prev).areaHue(), 29, 1);
@@ -384,7 +385,7 @@ test('withRetainedHue swaps the hue but serialises the verbatim source', () => {
 	// refresh that re-reads '#808080' is a no-op for the binding.
 	const dragged = OklchColor.fromString('oklch(0.5 0.1 200)')
 		.withFormat('hex')
-		.withCss('oklch(0.59987 0 200)');
+		.withOklch([0.59987, 0, 200]);
 	assert.ok(c.equals(dragged));
 });
 
@@ -401,6 +402,6 @@ test('a non-finite alpha or hue from a dead drag is a no-op, never NaN', () => {
 	}
 	assert.equal(c.withAlpha(NaN).withFormat('css').serialize(), 'rgba(0, 255, 0, 0.5)');
 	assert.equal(c.withAlpha(NaN).serialize(), '#00ff0080');
-	const h = c.withAreaHue(NaN).coordsIn('oklch').coords[2];
-	approx(h, c.coordsIn('oklch').coords[2]);
+	const h = c.withAreaHue(NaN).coordsIn('oklch')[2];
+	approx(h, c.coordsIn('oklch')[2]);
 });

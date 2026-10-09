@@ -9,7 +9,7 @@
  * gamut *narrower* than the stretch is plotted as a boundary line at its
  * fraction of that edge. Lightness is the vertical axis (top = 1).
  */
-import type {Space} from './core/convert.js';
+import type {RgbGamut} from './core/convert.js';
 import {convert, oklchGamutProbe} from './core/convert.js';
 import {maxChromaOf} from './core/gamut.js';
 
@@ -28,26 +28,14 @@ export interface BoundarySpec {
 
 /** Gamut nesting by chroma extent, narrow → wide. The plane's stretch gamut is
  *  the canvas edge; only gamuts strictly narrower than it are drawn as lines. */
-const GAMUT_RANK: Record<Space, number> = {
-	srgb: 0,
-	p3: 1,
-	rec2020: 2,
-	'prophoto-rgb': 3,
-	// non-RGB spaces never act as a plane gamut; rank them past the widest.
-	hsl: 9,
-	hwb: 9,
-	lab: 9,
-	lch: 9,
-	oklab: 9,
-	oklch: 9,
-};
+const GAMUT_RANK: Record<RgbGamut, number> = {srgb: 0, p3: 1, rec2020: 2};
 
 /** Boundary lines available to stroke over the plane, narrow → wide. Each is
  *  drawn when the plane is stretched to it or wider. The plugin caps the stretch
  *  at P3 (`areaStretch`), so a wide plane shows the solid sRGB line inside and the
  *  dashed P3 line riding the edge (the displayable limit). */
 const BOUNDARIES: {
-	space: Space;
+	space: RgbGamut;
 	color: string;
 	width: number;
 	dash: number[];
@@ -77,8 +65,8 @@ export interface AreaRequest {
 	supportsP3: boolean;
 	/** Gamut stretched to fill the canvas width. The plugin passes 'srgb' (the
 	 *  sRGB-bound modes) or 'p3' (every wide mode); the primitive also accepts
-	 *  wider. Every narrower gamut is drawn as an inner boundary line. */
-	stretch: Space;
+	 *  rec2020. Every narrower gamut is drawn as an inner boundary line. */
+	stretch: RgbGamut;
 }
 
 export interface AreaResult {
@@ -141,7 +129,7 @@ export function computeArea(req: AreaRequest): AreaResult {
 	const backingH = Math.round(req.cssH * req.dpr);
 	const W = Math.round(backingW / SUBSAMPLE);
 	const H = Math.round(backingH / SUBSAMPLE);
-	const target: Space = req.supportsP3 ? 'p3' : 'srgb';
+	const target: RgbGamut = req.supportsP3 ? 'p3' : 'srgb';
 
 	// Stretch reference: the chroma ceiling of `req.stretch` at each lightness.
 	// Drives both the gradient's per-row width and the boundary x-normalisation —

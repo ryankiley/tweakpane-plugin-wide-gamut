@@ -26,7 +26,7 @@ export interface OklchInputParams extends BaseInputParams {
 
 /**
  * Is the bound value a colour string *on its own*? Deliberately the strict
- * parser, not the model's lenient `OklchColor.isColorString`: that one recovers a
+ * parser, not the model's lenient `OklchColor.tryFromString`: that one recovers a
  * colour from surrounding text (a CSS declaration, a quoted value, an
  * `!important`), which is what the picker's text field wants but not what
  * `accept` wants. Claiming a binding whose value merely *contains* a colour —

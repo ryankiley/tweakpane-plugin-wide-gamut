@@ -498,8 +498,8 @@ test('stress: computeArea is finite + nested, and oklchGamutProbe matches colorj
 	// where the gamma-epsilon slack legitimately differs.
 	let worst = 0;
 	let at = '';
-	for (const gamut of ['srgb', 'p3', 'rec2020', 'prophoto-rgb'] as const) {
-		const cjs = gamut === 'prophoto-rgb' ? 'prophoto' : gamut;
+	for (const gamut of ['srgb', 'p3', 'rec2020'] as const) {
+		const cjs = gamut;
 		for (let i = 0; i < 400; i++) {
 			const hue = r() * 360;
 			const probe = oklchGamutProbe(hue, gamut);

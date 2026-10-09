@@ -154,13 +154,13 @@ test('stress: accept stays strict where the text field stays forgiving', () => {
 
 		// The bare form: both must claim it.
 		assert.ok(accepts(bare), `accept lost a bare colour: ${bare}`);
-		assert.ok(OklchColor.isColorString(bare), `field lost a colour: ${bare}`);
+		assert.ok(OklchColor.tryFromString(bare), `field lost a colour: ${bare}`);
 
 		// The wrapped form: accept must decline. (The field may or may not recover
 		// it — `extractColorString` is best-effort — but it must never be the one
 		// that declines while accept claims.)
 		assert.ok(!accepts(wrapped), `accept claimed embedded text: ${wrapped}`);
-		if (OklchColor.isColorString(wrapped)) {
+		if (OklchColor.tryFromString(wrapped)) {
 			disagreements++;
 		}
 	}

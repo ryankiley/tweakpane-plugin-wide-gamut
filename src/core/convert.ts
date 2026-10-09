@@ -385,6 +385,9 @@ export function convert(coords: Vec3, from: Space, to: Space): Vec3 {
 // gamma-encoded RGB channels, the exact quantity the reference `inGamut` tests.
 const GAMUT_SLACK = 0.000075;
 
+/** The D65 RGB gamuts the picker plane can be stretched to or bounded by. */
+export type RgbGamut = 'srgb' | 'p3' | 'rec2020';
+
 /**
  * Build a fast in-gamut probe for OKLCH at a *fixed hue*. Returns `(L, C) =>
  * inside?` that reuses all hue-dependent work, for the area picker's per-frame
@@ -392,18 +395,17 @@ const GAMUT_SLACK = 0.000075;
  *
  * OKLab→LMS has first column [1,1,1], so LMS = [L,L,L] + C·dir where `dir`
  * depends only on hue; the per-point cube is the sole nonlinearity. LMS→XYZ→
- * linear-RGB is fused into one matrix `F` up front (D50-adapted for ProPhoto),
- * then the gamut's transfer function + bounds check run per point. This is the
- * same computation as `inGamut([L, C, hue], 'oklch', gamut)` with the fixed
- * matrix chain hoisted out of the loop, so it matches it exactly. (Skipping the
- * gamma encode and testing linear RGB looks tempting but breaks down near black,
- * where the linear↔gamma slope is ~13× and the chroma boundary is near-flat — a
- * tiny linear tolerance there becomes a huge chroma error.) `gamut` must be an
- * RGB space (the only kind the area stretches to).
+ * linear-RGB is fused into one matrix `F` up front, then the gamut's transfer
+ * function + bounds check run per point. This is the same computation as
+ * `inGamut([L, C, hue], 'oklch', gamut)` with the fixed matrix chain hoisted
+ * out of the loop, so it matches it exactly. (Skipping the gamma encode and
+ * testing linear RGB looks tempting but breaks down near black, where the
+ * linear↔gamma slope is ~13× and the chroma boundary is near-flat — a tiny
+ * linear tolerance there becomes a huge chroma error.)
  */
 export function oklchGamutProbe(
 	hue: number,
-	gamut: Space,
+	gamut: RgbGamut,
 ): (L: number, C: number) => boolean {
 	const h = hue * RAD;
 	const cos = Math.cos(h);
@@ -411,24 +413,15 @@ export function oklchGamutProbe(
 	const d0 = cos * OKLAB_TO_LMS[0][1] + sin * OKLAB_TO_LMS[0][2];
 	const d1 = cos * OKLAB_TO_LMS[1][1] + sin * OKLAB_TO_LMS[1][2];
 	const d2 = cos * OKLAB_TO_LMS[2][1] + sin * OKLAB_TO_LMS[2][2];
-	const xyzToLin =
+	const F = mulMat(
 		gamut === 'p3'
 			? XYZ_TO_LIN_P3
 			: gamut === 'rec2020'
 			? XYZ_TO_LIN_REC2020
-			: gamut === 'prophoto-rgb'
-			? XYZ_D50_TO_LIN_PRO
-			: XYZ_TO_LIN_SRGB;
-	const F = mulMat(
-		xyzToLin,
-		gamut === 'prophoto-rgb' ? mulMat(XYZ_D65_TO_D50, LMS_TO_XYZ) : LMS_TO_XYZ,
+			: XYZ_TO_LIN_SRGB,
+		LMS_TO_XYZ,
 	);
-	const gam =
-		gamut === 'rec2020'
-			? rec2020Gam
-			: gamut === 'prophoto-rgb'
-			? prophotoGam
-			: srgbGam;
+	const gam = gamut === 'rec2020' ? rec2020Gam : srgbGam;
 	const lo = -GAMUT_SLACK;
 	const hi = 1 + GAMUT_SLACK;
 	return (L: number, C: number): boolean => {
