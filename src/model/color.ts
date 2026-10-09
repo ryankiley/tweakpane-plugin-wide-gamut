@@ -11,7 +11,7 @@
  */
 import type {Space} from '../core/convert.js';
 import {convert} from '../core/convert.js';
-import {inGamut as inGamutOf, toGamut} from '../core/gamut.js';
+import {inGamut as inGamutOf, maxChroma, toGamut} from '../core/gamut.js';
 import {parse} from '../core/parse.js';
 import {serialize} from '../core/serialize.js';
 
@@ -75,6 +75,12 @@ export function areaStretch(mode: EditMode): Space {
  *  near 0.49), so it rejects nonsense input (e.g. a typed chroma of 40000)
  *  without ever clipping a colour that could actually be shown. */
 const MAX_CHROMA = 0.5;
+
+/** Below this chroma a colour is achromatic and its hue is powerless (CSS Color 4
+ *  §"missing components"). Parsed greys land around 1e-16; the faintest tint an
+ *  8-bit sRGB value can carry (`#808081`) is ~1.5e-3, so 1e-4 splits them cleanly. */
+const POWERLESS_CHROMA = 1e-4;
+const achromatic = (chroma: number): boolean => chroma < POWERLESS_CHROMA;
 
 export const MODE_LABELS: Record<EditMode, string> = {
 	oklch: 'OKLCH',
@@ -251,12 +257,16 @@ export class OklchColor {
 	private readonly format: ColorFormat;
 	/** Verbatim source string; returned by `serialize()` until edited (then null). */
 	private readonly source: string | null;
+	/** The hue is parser noise, not a choice: the colour was parsed achromatic
+	 *  and nothing since has set a hue. See `hueIsPowerless`. */
+	private readonly huePowerless: boolean;
 
 	private constructor(
 		coords: Coords3,
 		alpha: number,
 		format: ColorFormat,
 		source: string | null,
+		huePowerless = false,
 	) {
 		// Clamp to sane bounds at the single construction choke point, so typed or
 		// parsed nonsense (e.g. a chroma of 40000 in the colour text field) can't
@@ -269,6 +279,7 @@ export class OklchColor {
 		this.alpha = clamp(alpha, 0, 1);
 		this.format = format;
 		this.source = source;
+		this.huePowerless = huePowerless;
 	}
 
 	/** A copy marked as edited: drops the verbatim `source` string so `serialize()`
@@ -276,7 +287,13 @@ export class OklchColor {
 	 *  typed into, so an out-of-range entry shows as its clamped value rather than
 	 *  echoing the nonsense back. */
 	asEdited(): OklchColor {
-		return new OklchColor(this.oklch(), this.alpha, this.format, null);
+		return new OklchColor(
+			this.oklch(),
+			this.alpha,
+			this.format,
+			null,
+			this.huePowerless,
+		);
 	}
 
 	/** Mutable copy of the canonical OKLCH coords (engine functions take a tuple). */
@@ -358,7 +375,7 @@ export class OklchColor {
 			isCss,
 			hasAlpha,
 		};
-		return new OklchColor(coords, alpha, format, source);
+		return new OklchColor(coords, alpha, format, source, achromatic(coords[1]));
 	}
 
 	static tryFromString(css: string): OklchColor | null {
@@ -518,12 +535,14 @@ export class OklchColor {
 		const next: Coords3 = [coords[0], coords[1], coords[2]];
 		next[index] = displayValue / MODE_CHANNELS[mode][index].scale;
 		const k = convert(next, sid, 'oklch');
-		return new OklchColor(
-			[num(k[0]), num(k[1]), num(k[2])],
-			alpha,
-			this.format,
-			null,
-		);
+		const c: Coords3 = [num(k[0]), num(k[1]), num(k[2])];
+		// Setting a hue channel is a choice; so is giving the colour chroma (its
+		// hue now shows). Anything else on a grey leaves the hue as unchosen.
+		const powerless =
+			this.huePowerless &&
+			MODE_CHANNELS[mode][index].key !== 'h' &&
+			achromatic(c[1]);
+		return new OklchColor(c, alpha, this.format, null, powerless);
 	}
 
 	withAlpha(alpha: number): OklchColor {
@@ -532,6 +551,7 @@ export class OklchColor {
 			alpha,
 			{...this.format, hasAlpha: true},
 			null,
+			this.huePowerless,
 		);
 	}
 
@@ -579,17 +599,93 @@ export class OklchColor {
 				hasAlpha: this.format.hasAlpha,
 			},
 			null,
+			this.huePowerless,
 		);
 	}
 
-	/** New colour with the area plane's fixed hue (OKLCH H) set to `hue` (degrees). */
-	withAreaHue(hue: number): OklchColor {
+	/** OKLCH hue (degrees) — the fixed axis of the locked L×C area plane. */
+	areaHue(): number {
+		return this.coords[2];
+	}
+
+	/**
+	 * New colour with the area plane's fixed hue (OKLCH H) set to `hue` (degrees).
+	 *
+	 * With `gamut` (the plane's stretch gamut), chroma is rescaled so the colour
+	 * keeps its *position on the plane*: the same fraction of the row's chroma
+	 * ceiling at the new hue as at the old. The gamut's edge moves a lot with hue
+	 * (P3 at L 0.5 spans ~0.12 at hue 220 to ~0.28 at 300), so holding chroma
+	 * constant would slide the thumb sideways — and off the edge into colours the
+	 * plane can't show — on every hue drag. A colour already past the edge keeps
+	 * the same ratio past it (nothing is clamped). Without `gamut`, chroma is held
+	 * as is.
+	 */
+	withAreaHue(hue: number, gamut?: Space): OklchColor {
+		const [L, C, H] = this.coords;
+		const h = num(hue);
+		let c = C;
+		if (gamut !== undefined) {
+			const was = maxChroma(L, H, gamut);
+			c = was > 0 ? (C / was) * maxChroma(L, h, gamut) : 0;
+		}
+		return this.withHue(h, c, null);
+	}
+
+	/** Copy with hue `h` (and chroma `c`); the hue counts as chosen unless the
+	 *  caller says it is still `powerless` (inherited from another unchosen grey). */
+	private withHue(
+		h: number,
+		c: number,
+		source: string | null,
+		powerless = false,
+	): OklchColor {
 		return new OklchColor(
-			[this.coords[0], this.coords[1], num(hue)],
+			[this.coords[0], c, h],
 			this.alpha,
 			this.format,
-			null,
+			source,
+			powerless,
 		);
+	}
+
+	/** Achromatic: chroma below the powerless threshold, so the hue carries no
+	 *  colour information. */
+	get isAchromatic(): boolean {
+		return achromatic(this.coords[1]);
+	}
+
+	/**
+	 * Whether the hue is parser noise rather than anything chosen. `#808080`
+	 * parses to an arbitrary hue; that stays "unchosen" through edits that don't
+	 * touch hue (alpha, format, a typed re-entry) and is settled the moment a hue
+	 * is set — by the plane or hue strip, a hue channel, or `withRetainedHue`.
+	 * The binding and the text fields use this to hand a fresh grey the hue the
+	 * picker is already on, so the plane never jumps to noise.
+	 */
+	get hueIsPowerless(): boolean {
+		return this.huePowerless;
+	}
+
+	/** Same colour with the (powerless) hue replaced by `hue`. Keeps the verbatim
+	 *  source, so `serialize()` still returns the string the binding supplied —
+	 *  for an achromatic colour the hue changes nothing about the colour itself. */
+	withRetainedHue(hue: number): OklchColor {
+		return this.withHue(num(hue), this.coords[1], this.source);
+	}
+
+	/** If this colour's hue is powerless, take `prev`'s hue (the one the picker
+	 *  is on); otherwise unchanged. For a colour typed into a text field. If
+	 *  `prev`'s hue was itself never chosen, the result stays unchosen too — the
+	 *  plane holds still, but nothing records that noise as a real hue. */
+	inheritHue(prev: OklchColor): OklchColor {
+		return this.huePowerless
+			? this.withHue(
+					prev.areaHue(),
+					this.coords[1],
+					this.source,
+					prev.huePowerless,
+			  )
+			: this;
 	}
 
 	/** Adopt coords from an arbitrary CSS string (e.g. the area picker's onChange). */
@@ -604,6 +700,7 @@ export class OklchColor {
 			this.alpha,
 			this.format,
 			null,
+			false,
 		);
 	}
 

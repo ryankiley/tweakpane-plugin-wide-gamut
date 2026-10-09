@@ -19,7 +19,11 @@ import {
 	PointerHandler,
 } from '@tweakpane/core';
 
-import {hueStripColor, hueStripGradient} from './hue-gradient.js';
+import {
+	chromaFraction,
+	hueStripColor,
+	hueStripGradient,
+} from './hue-gradient.js';
 import {type EditMode, areaStretch, OklchColor} from './model/color.js';
 
 const cnHpl = ClassName('hpl');
@@ -39,8 +43,10 @@ export class StripController {
 	private readonly mode_: Value<EditMode>;
 	private readonly markerElem_: HTMLElement;
 	private readonly fillElem_: HTMLElement;
-	/** `L|C|gamut` the hue gradient was last built for — not hue, so a hue drag
-	 *  never rebuilds it. */
+	/** `L|fraction|gamut` the hue gradient was last built for — not hue, and a
+	 *  hue drag holds the fraction, so dragging hue never rebuilds it. L is keyed
+	 *  at 3 dp so a plane drag only rebuilds when the strip would actually look
+	 *  different, not on every pointermove. */
 	private gradientKey_ = '';
 
 	constructor(doc: Document, config: Config) {
@@ -101,25 +107,33 @@ export class StripController {
 		}
 		const t = Math.max(0, Math.min(1, point.x / ev.data.bounds.width));
 		const c = this.value_.rawValue;
-		// The area is locked to the OKLCH plane, so the hue strip edits OKLCH hue.
+		// The area is locked to the OKLCH plane, so the hue strip edits OKLCH hue —
+		// rescaling chroma to the new hue's ceiling in the plane's gamut, so the
+		// thumb holds its position on the plane instead of sliding off the edge.
 		this.value_.rawValue =
-			this.kind_ === 'hue' ? c.withAreaHue(t * 360) : c.withAlpha(t);
+			this.kind_ === 'hue'
+				? c.withAreaHue(t * 360, areaStretch(this.mode_.rawValue))
+				: c.withAlpha(t);
 	}
 
 	private refresh_(): void {
 		const c = this.value_.rawValue;
 		if (this.kind_ === 'hue') {
-			const [l, ch, h] = c.coordsIn('oklch').coords;
+			const [l0, ch, h] = c.coordsIn('oklch').coords;
 			const gamut = areaStretch(this.mode_.rawValue);
-			const key = `${l}|${ch}|${gamut}`;
+			const l = Number(l0.toFixed(3));
+			const f = chromaFraction(l, ch, h, gamut);
+			const key = `${l}|${f}|${gamut}`;
 			if (key !== this.gradientKey_) {
 				this.gradientKey_ = key;
-				this.fillElem_.style.background = hueStripGradient(l, ch, gamut);
+				this.fillElem_.style.background = hueStripGradient(l, f, gamut);
 			}
 			this.markerElem_.style.left = `${h / 3.6}%`;
 			// Like native: fill the marker with the strip's own colour at its
-			// position, so it blends in (its white ring makes it visible).
-			this.markerElem_.style.backgroundColor = hueStripColor(l, ch, h, gamut);
+			// position, so it blends in (its white ring makes it visible). Below the
+			// chroma floor that is the strip's floored colour, not the (greyer)
+			// colour itself — the swatch and plane show the real one.
+			this.markerElem_.style.backgroundColor = hueStripColor(l, f, h, gamut);
 		} else {
 			const [l, ch, hh] = c.coordsIn('oklch').coords;
 			this.fillElem_.style.background = `linear-gradient(to right, oklch(${l} ${ch} ${hh} / 0), oklch(${l} ${ch} ${hh} / 1))`;

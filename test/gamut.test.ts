@@ -7,7 +7,8 @@ import test from 'node:test';
 import Color from 'colorjs.io';
 
 import type {Space, Vec3} from '../src/core/convert.js';
-import {inGamut, toGamut} from '../src/core/gamut.js';
+import {convert} from '../src/core/convert.js';
+import {inGamut, maxChroma, toGamut} from '../src/core/gamut.js';
 
 function rng(seed: number): () => number {
 	let s = seed >>> 0;
@@ -98,5 +99,40 @@ test('toGamut leaves in-gamut colours unchanged', () => {
 	const oracle = new Color('oklch', c).to('srgb').coords as Vec3;
 	for (let k = 0; k < 3; k++) {
 		assert.ok(Math.abs(mapped[k] - oracle[k]) < 1e-9, `ch${k}`);
+	}
+});
+
+test('maxChroma is the gamut edge: inside at it, outside just past it', () => {
+	const r = rng(0xc0ffee);
+	for (let i = 0; i < 200; i++) {
+		const L = 0.02 + r() * 0.96;
+		const h = r() * 360;
+		for (const g of ['srgb', 'p3', 'rec2020'] as const) {
+			const c = maxChroma(L, h, g);
+			assert.ok(c > 0, `edge > 0 at L=${L} h=${h} ${g}`);
+			assert.ok(
+				new Color('oklch', [L, c, h]).inGamut(g),
+				`edge in gamut: ${g} L=${L} h=${h} c=${c}`,
+			);
+			assert.ok(
+				!new Color('oklch', [L, c + 1e-3, h]).inGamut(g),
+				`just past the edge is out: ${g} L=${L} h=${h} c=${c}`,
+			);
+		}
+		// sRGB sits wholly inside P3, so its edge never exceeds P3's. (Rec2020
+		// is deliberately not asserted against P3: P3's red corner pokes just
+		// outside Rec2020, so at a few hues the Rec2020 edge is the narrower one.)
+		assert.ok(maxChroma(L, h, 'srgb') <= maxChroma(L, h, 'p3') + 1e-9);
+	}
+	// Black and white are single points. The bisection still finds a little
+	// chroma there (the in-gamut slack is applied in gamma space, and the sRGB
+	// toe squashes small chroma to nothing), but the colour at that edge is
+	// still black / white to well under a display step.
+	for (const [L, want] of [
+		[0, 0],
+		[1, 1],
+	] as const) {
+		const edge = convert([L, maxChroma(L, 120, 'p3'), 120], 'oklch', 'p3');
+		edge.forEach((v) => assert.ok(Math.abs(v - want) < 1e-3, `tip ${L}: ${v}`));
 	}
 });

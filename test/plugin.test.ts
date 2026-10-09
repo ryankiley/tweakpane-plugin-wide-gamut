@@ -13,11 +13,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {BindingTarget} from '@tweakpane/core';
+
 import {OklchColor} from '../src/model/color.js';
 import {OklchInputPlugin} from '../src/plugin.js';
 
 const accepts = (value: unknown): boolean =>
 	OklchInputPlugin.accept(value, {}) !== null;
+
+const approx = (a: number, b: number, tol = 1e-2): void =>
+	assert.ok(Math.abs(a - b) <= tol, `expected ${a} ≈ ${b} (±${tol})`);
 
 test('accept claims every colour string the picker can edit', () => {
 	const colors = [
@@ -91,4 +96,51 @@ test('an accepted value round-trips through reader → writer', () => {
 		assert.equal(accepts(s), true);
 		assert.equal(OklchColor.fromString(s).serialize(), s.trim());
 	});
+});
+
+test('a grey read back from the target keeps the hue the picker was last on', () => {
+	// `pane.refresh()` / a preset re-reads the bound string through the reader.
+	// A grey has no hue of its own, so a bare re-read would hand the plane an
+	// arbitrary one and it would jump. The writer remembers the last meaningful
+	// hue per target; the reader gives it to a parsed grey.
+	const obj = {c: 'oklch(0.6 0.15 200)'};
+	const target = new BindingTarget(obj, 'c');
+	const args = {initialValue: obj.c, params: {}, target};
+	const read = OklchInputPlugin.binding.reader(args);
+	const write = OklchInputPlugin.binding.writer(args);
+
+	// Nothing written yet: a grey parses as is.
+	assert.ok(read('#808080').hueIsPowerless);
+
+	// The picker lands on hue 200 (initial value flows through the writer).
+	write(target, read(obj.c));
+	const grey = read('#808080');
+	approx(grey.areaHue(), 200);
+	assert.equal(grey.serialize(), '#808080'); // the string itself is untouched
+
+	// The user drags the hue strip while on a grey: that hue is a choice, so it
+	// is remembered even though the colour is achromatic.
+	write(target, read('#808080').withAreaHue(90, 'srgb'));
+	approx(read('#808080').areaHue(), 90);
+
+	// A written grey that was never edited (a preset) doesn't overwrite it,
+	// and neither does an alpha drag or a mode switch on a grey (no hue chosen).
+	write(target, read('oklch(0.5 0 30)'));
+	approx(read('#808080').areaHue(), 90);
+	write(target, read('#808080').withAlpha(0.5));
+	write(target, read('#808080').withFormat('oklch'));
+	approx(read('#808080').areaHue(), 90);
+
+	// A chromatic write moves it on.
+	write(target, read('#ff0000'));
+	approx(read('#808080').areaHue(), 29, 1);
+
+	// Different targets don't share hue.
+	const other = new BindingTarget({c: '#000'}, 'c');
+	const readOther = OklchInputPlugin.binding.reader({
+		initialValue: '#000',
+		params: {},
+		target: other,
+	});
+	assert.ok(readOther('#808080').hueIsPowerless);
 });

@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {maxChroma} from '../src/core/gamut.js';
 import {
 	areaStretch,
 	EDIT_MODES,
@@ -286,4 +287,103 @@ test('an achromatic colour never serialises a NaN hue in HSL/HWB', () => {
 		OklchColor.fromString('hsl(120 50% 0%)').asEdited().serialize(),
 		'hsl(0 0% 0%)',
 	);
+});
+
+test('withAreaHue with a gamut keeps the position on the plane', () => {
+	// Half-way across the P3 row at hue 220, where the edge is narrow (~0.12).
+	const c = OklchColor.fromString('oklch(0.5 0.06 220)');
+	const moved = c.withAreaHue(300, 'p3');
+	approx(moved.areaHue(), 300);
+	approx(moved.coords[0], 0.5, 1e-9);
+	// Hue 300's P3 edge is ~0.28 at this lightness: chroma more than doubles,
+	// staying at the same fraction of the row.
+	assert.ok(moved.coords[1] > 0.12, `chroma rescaled: ${moved.coords[1]}`);
+	assert.ok(moved.inGamut('p3'));
+	// Round trip back lands on the original chroma.
+	approx(moved.withAreaHue(220, 'p3').coords[1], 0.06, 1e-6);
+});
+
+test('withAreaHue without a gamut holds chroma as is', () => {
+	const c = OklchColor.fromString('oklch(0.5 0.06 220)').withAreaHue(300);
+	approx(c.areaHue(), 300);
+	approx(c.coords[1], 0.06, 1e-9);
+});
+
+test('withAreaHue keeps a colour past the plane edge at the same ratio past it', () => {
+	// A Rec2020-mode value beyond P3 (the plane is capped at P3). A hue drag must
+	// not quietly clamp it into P3: it stays the same multiple of the row's edge.
+	const c = OklchColor.fromString('color(rec2020 0 1 0)');
+	assert.ok(!c.inGamut('p3'));
+	const [L, C, H] = c.coords;
+	const ratio = C / maxChroma(L, H, 'p3');
+	assert.ok(ratio > 1, `beyond the edge: ${ratio}`);
+	const moved = c.withAreaHue(30, 'p3');
+	assert.ok(!moved.inGamut('p3'), 'still beyond the plane');
+	approx(moved.coords[1] / maxChroma(L, 30, 'p3'), ratio, 1e-6);
+	// And dragging back restores the original chroma.
+	approx(moved.withAreaHue(H, 'p3').coords[1], C, 1e-6);
+});
+
+test('withAreaHue keeps a grey grey and alpha/format intact', () => {
+	const grey = OklchColor.fromString('#80808080');
+	const moved = grey.withAreaHue(90, 'srgb');
+	assert.ok(moved.isAchromatic);
+	approx(moved.areaHue(), 90);
+	assert.equal(moved.hasAlpha, true);
+	approx(moved.alpha, 128 / 255, 1e-3);
+	// At the black/white tips the ceiling is 0 on both sides: stays achromatic.
+	assert.ok(OklchColor.fromString('#000').withAreaHue(90, 'p3').isAchromatic);
+	assert.ok(OklchColor.fromString('#fff').withAreaHue(90, 'p3').isAchromatic);
+});
+
+test('hueIsPowerless: a parsed grey, until something sets a hue', () => {
+	const grey = OklchColor.fromString('#808080');
+	assert.ok(grey.hueIsPowerless);
+	assert.ok(OklchColor.fromString('oklch(0.5 0 200)').hueIsPowerless);
+	// A chromatic colour's hue is real, however faint.
+	assert.ok(!OklchColor.fromString('#808081').hueIsPowerless);
+	// Edits that don't touch hue leave it unchosen …
+	assert.ok(grey.asEdited().hueIsPowerless);
+	assert.ok(grey.withAlpha(0.5).hueIsPowerless);
+	assert.ok(grey.withFormat('oklch').hueIsPowerless);
+	assert.ok(grey.withChannel('oklch', 0, 40).hueIsPowerless); // L only
+	// … and anything that sets one settles it.
+	assert.ok(!grey.withAreaHue(200).hueIsPowerless);
+	assert.ok(!grey.withAreaHue(200, 'srgb').hueIsPowerless);
+	assert.ok(!grey.withCss('oklch(0.6 0 200)').hueIsPowerless);
+	assert.ok(!grey.withRetainedHue(200).hueIsPowerless);
+	assert.ok(!grey.withChannel('oklch', 2, 200).hueIsPowerless); // H channel
+	assert.ok(!grey.withChannel('hsl', 0, 200).hueIsPowerless); // HSL hue
+	assert.ok(!grey.withChannel('oklch', 1, 0.1).hueIsPowerless); // gained chroma
+});
+
+test('inheritHue: a typed grey takes the hue the picker is on', () => {
+	const prev = OklchColor.fromString('oklch(0.6 0.15 200)');
+	const typed = OklchColor.fromString('#808080').inheritHue(prev).asEdited();
+	approx(typed.areaHue(), 200);
+	assert.ok(typed.isAchromatic);
+	assert.ok(!typed.hueIsPowerless);
+	// A typed chromatic colour keeps its own hue.
+	approx(OklchColor.fromString('#ff0000').inheritHue(prev).areaHue(), 29, 1);
+	// Typed grey over a grey picker: inherits whatever hue the plane shows.
+	approx(OklchColor.fromString('#404040').inheritHue(typed).areaHue(), 200);
+	// … and if that hue was itself never chosen (a parsed grey), it stays
+	// unchosen, so the binding never records parser noise as a real hue.
+	const noise = OklchColor.fromString('#808080');
+	const over = OklchColor.fromString('#404040').inheritHue(noise);
+	approx(over.areaHue(), noise.areaHue());
+	assert.ok(over.hueIsPowerless);
+});
+
+test('withRetainedHue swaps the hue but serialises the verbatim source', () => {
+	const c = OklchColor.fromString('#808080').withRetainedHue(200);
+	approx(c.areaHue(), 200);
+	assert.equal(c.serialize(), '#808080');
+	assert.ok(!c.hueIsPowerless); // the retained hue is a real one now
+	// Equal to the same grey reached by dragging to it on that hue — so a
+	// refresh that re-reads '#808080' is a no-op for the binding.
+	const dragged = OklchColor.fromString('oklch(0.5 0.1 200)')
+		.withFormat('hex')
+		.withCss('oklch(0.59987 0 200)');
+	assert.ok(c.equals(dragged));
 });

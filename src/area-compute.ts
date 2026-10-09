@@ -11,13 +11,10 @@
  */
 import type {Space} from './core/convert.js';
 import {convert, oklchGamutProbe} from './core/convert.js';
+import {maxChromaOf} from './core/gamut.js';
 
 /** Gradient is rasterised at 1/4 of the backing resolution, then scaled up. */
 const SUBSAMPLE = 4;
-/** Upper bound for the chroma bisection — beyond every physical display gamut. */
-const CHROMA_CEILING = 0.5;
-/** Bisection steps: 16 ⇒ ~0.5/2¹⁶ ≈ 8e-6 chroma resolution. */
-const BISECT_STEPS = 16;
 /** Samples in the per-lightness chroma curve handed back for thumb placement. */
 const CURVE_SAMPLES = 128;
 
@@ -59,33 +56,9 @@ const BOUNDARIES: {
 	{space: 'p3', color: 'rgba(255,255,255,0.4)', width: 1, dash: [3, 3]},
 ];
 
-/**
- * Largest in-gamut chroma at lightness `L`, by bisecting a prebuilt per-hue
- * `probe` (see `oklchGamutProbe`). Returns 0 when the gamut doesn't even contain
- * the achromatic point at this lightness (so the row contributes nothing). The
- * probe is built once per hue/gamut and reused across every lightness — that
- * reuse is the bulk of the per-frame saving.
- */
-export function maxChroma(
-	probe: (L: number, C: number) => boolean,
-	L: number,
-	ceiling = CHROMA_CEILING,
-): number {
-	if (!probe(L, 0)) {
-		return 0;
-	}
-	let inside = 0;
-	let outside = ceiling;
-	for (let i = 0; i < BISECT_STEPS; i++) {
-		const mid = (inside + outside) / 2;
-		if (probe(L, mid)) {
-			inside = mid;
-		} else {
-			outside = mid;
-		}
-	}
-	return inside;
-}
+// `maxChromaOf` (core/gamut) takes a prebuilt per-hue probe: it's built once per
+// hue/gamut here and reused across every lightness — that reuse is the bulk of
+// the per-frame saving.
 
 /** Sample an evenly-spaced [0,1]-indexed curve at `t`, linearly interpolated. */
 export function sampleCurve(curve: Float64Array, t: number): number {
@@ -144,7 +117,7 @@ function traceBoundary(
 		// and P3 inside Rec2020) lands inside it. Tying the search to `edge` keeps
 		// the ratio ordered and bounded even at the near-black/near-white extremes,
 		// where `edge` itself is tiny and an independent search is noisy.
-		const c = maxChroma(probe, L, edge);
+		const c = maxChromaOf(probe, L, edge);
 		if (c <= 0) {
 			continue; // gamut empty at this lightness
 		}
@@ -176,7 +149,7 @@ export function computeArea(req: AreaRequest): AreaResult {
 	const stretchProbe = oklchGamutProbe(req.hue, req.stretch);
 	const stretch = new Float64Array(CURVE_SAMPLES);
 	for (let i = 0; i < CURVE_SAMPLES; i++) {
-		stretch[i] = maxChroma(stretchProbe, i / (CURVE_SAMPLES - 1));
+		stretch[i] = maxChromaOf(stretchProbe, i / (CURVE_SAMPLES - 1));
 	}
 
 	// Rasterise the gradient: column x maps to chroma (x/W of the row's stretch
