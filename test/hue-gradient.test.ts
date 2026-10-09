@@ -15,6 +15,7 @@ import {
 	HUE_STEP,
 	hueStripColor,
 	hueStripGradient,
+	STRIP_CHROMA_FLOOR,
 } from '../src/hue-gradient.js';
 import {cjsMaxChroma} from './oracle.js';
 
@@ -68,8 +69,10 @@ test('chromaFraction: share of the edge, clamped to 1, stable across a hue drag'
 	assert.ok(Math.abs(chromaFraction(0.6, edge / 2, 200, 'srgb') - 0.5) < 1e-3);
 	// Beyond the edge: the strip shows the edge itself.
 	assert.equal(chromaFraction(0.6, 0.5, 200, 'srgb'), 1);
-	// Grey: no chroma anywhere.
-	assert.equal(chromaFraction(0.6, 0, 200, 'srgb'), 0);
+	// Grey (and anything fainter than the floor): the strip paints at the floor,
+	// so it still shows hues to pick from instead of going flat grey.
+	assert.equal(chromaFraction(0.6, 0, 200, 'srgb'), STRIP_CHROMA_FLOOR);
+	assert.equal(chromaFraction(0.6, edge * 0.1, 200, 'srgb'), STRIP_CHROMA_FLOOR);
 	// A hue drag holds the fraction (withAreaHue rescales chroma by the edge
 	// ratio), so the fraction read back at the new hue is the same number and
 	// the strip key does not change mid-drag.
@@ -110,9 +113,14 @@ test('L = 0 and L = 1 render every stop as black / white', () => {
 	}
 });
 
-test('C = 0 is an achromatic strip', () => {
-	for (const s of parseStops(hueStripGradient(0.6, 0, 'srgb'))) {
-		assert.equal(s.C, 0);
+test('a grey still gets a hued strip, at the floor fraction', () => {
+	const f = chromaFraction(0.6, 0, 200, 'srgb');
+	assert.equal(f, STRIP_CHROMA_FLOOR);
+	for (const s of parseStops(hueStripGradient(0.6, f, 'srgb'))) {
+		assert.ok(s.C > 0.02, `h=${s.h}: ${s.C}`);
+		assert.ok(
+			Math.abs(s.C - STRIP_CHROMA_FLOOR * cjsMaxChroma(0.6, s.h, 'srgb')) < 2e-4,
+		);
 	}
 });
 

@@ -17,13 +17,19 @@ import {maxChroma} from './core/gamut.js';
 /** Stop spacing in degrees. */
 export const HUE_STEP = 5;
 
+/** Least fraction of the edge the strip paints at. A grey (or near-grey) would
+ *  otherwise give a flat grey strip with no hue cues to pick from; at this
+ *  floor the hues stay legible while the strip still reads as muted. */
+export const STRIP_CHROMA_FLOOR = 0.4;
+
 const fmt = (v: number): string => Number(v.toFixed(4)).toString();
 
 /**
- * Where a colour sits across the plane: its chroma as a fraction of the
- * `gamut` edge at its own hue, clamped to 1 (the strip only shows what the
- * plane can) and rounded to 4 dp — so a hue drag, which holds the fraction,
- * yields the same value at every hue and the strip is never rebuilt mid-drag.
+ * The fraction of the edge the strip paints at for a colour: its chroma as a
+ * fraction of the `gamut` edge at its own hue, clamped to [STRIP_CHROMA_FLOOR,
+ * 1] (the strip only shows what the plane can, and never goes flat grey) and
+ * rounded to 4 dp — so a hue drag, which holds the fraction, yields the same
+ * value at every hue and the strip is never rebuilt mid-drag.
  */
 export function chromaFraction(
 	L: number,
@@ -32,7 +38,11 @@ export function chromaFraction(
 	gamut: Space,
 ): number {
 	const edge = maxChroma(L, hue, gamut);
-	return edge > 0 ? Number(Math.min(1, C / edge).toFixed(4)) : 0;
+	if (edge <= 0) {
+		return 0;
+	}
+	const f = Math.max(STRIP_CHROMA_FLOOR, Math.min(1, C / edge));
+	return Number(f.toFixed(4));
 }
 
 /** The strip colour at `hue`: `fraction` of the `gamut` edge at that hue. */
