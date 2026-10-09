@@ -7152,6 +7152,39 @@ function oklchGamutProbe(hue, gamut) {
 // colorjs's default inGamut epsilon — small slack so a colour exactly on the
 // boundary counts as inside.
 const EPSILON = 0.000075;
+/** Upper bound for the chroma bisection — beyond every physical display gamut. */
+const CHROMA_CEILING = 0.5;
+/** Bisection steps: 16 ⇒ ~0.5/2¹⁶ ≈ 8e-6 chroma resolution. */
+const BISECT_STEPS = 16;
+/**
+ * Largest in-gamut chroma at lightness `L`, by bisecting a prebuilt per-hue
+ * `probe` (see `oklchGamutProbe`). Returns 0 when the gamut doesn't even contain
+ * the achromatic point at this lightness (so the row contributes nothing). Takes
+ * the probe rather than a hue so a caller walking many lightnesses at one hue
+ * builds it once.
+ */
+function maxChromaOf(probe, L, ceiling = CHROMA_CEILING) {
+    if (!probe(L, 0)) {
+        return 0;
+    }
+    let inside = 0;
+    let outside = ceiling;
+    for (let i = 0; i < BISECT_STEPS; i++) {
+        const mid = (inside + outside) / 2;
+        if (probe(L, mid)) {
+            inside = mid;
+        }
+        else {
+            outside = mid;
+        }
+    }
+    return inside;
+}
+/** Largest OKLCH chroma inside `gamut` at lightness `L` and hue `hue` (degrees):
+ *  the right edge of the picker plane at that row. */
+function maxChroma(L, hue, gamut) {
+    return maxChromaOf(oklchGamutProbe(hue, gamut), L);
+}
 /** Is `coords` (expressed in `space`) inside the `gamut` RGB space? */
 function inGamut(coords, space, gamut) {
     const rgb = space === gamut ? coords : convert(coords, space, gamut);
@@ -7638,6 +7671,11 @@ function areaStretch(mode) {
  *  near 0.49), so it rejects nonsense input (e.g. a typed chroma of 40000)
  *  without ever clipping a colour that could actually be shown. */
 const MAX_CHROMA = 0.5;
+/** Below this chroma a colour is achromatic and its hue is powerless (CSS Color 4
+ *  §"missing components"). Parsed greys land around 1e-16; the faintest tint an
+ *  8-bit sRGB value can carry (`#808081`) is ~1.5e-3, so 1e-4 splits them cleanly. */
+const POWERLESS_CHROMA = 1e-4;
+const achromatic = (chroma) => chroma < POWERLESS_CHROMA;
 const MODE_LABELS = {
     oklch: 'OKLCH',
     oklab: 'OKLab',
@@ -7775,7 +7813,10 @@ class OklchColor {
     format;
     /** Verbatim source string; returned by `serialize()` until edited (then null). */
     source;
-    constructor(coords, alpha, format, source) {
+    /** The hue is parser noise, not a choice: the colour was parsed achromatic
+     *  and nothing since has set a hue. See `hueIsPowerless`. */
+    huePowerless;
+    constructor(coords, alpha, format, source, huePowerless = false) {
         // Clamp to sane bounds at the single construction choke point, so typed or
         // parsed nonsense (e.g. a chroma of 40000 in the colour text field) can't
         // take hold. Every real colour already sits inside these.
@@ -7787,13 +7828,14 @@ class OklchColor {
         this.alpha = clamp(alpha, 0, 1);
         this.format = format;
         this.source = source;
+        this.huePowerless = huePowerless;
     }
     /** A copy marked as edited: drops the verbatim `source` string so `serialize()`
      *  recomputes from the (clamped) coords. Used when the colour text field is
      *  typed into, so an out-of-range entry shows as its clamped value rather than
      *  echoing the nonsense back. */
     asEdited() {
-        return new OklchColor(this.oklch(), this.alpha, this.format, null);
+        return new OklchColor(this.oklch(), this.alpha, this.format, null, this.huePowerless);
     }
     /** Mutable copy of the canonical OKLCH coords (engine functions take a tuple). */
     oklch() {
@@ -7865,7 +7907,7 @@ class OklchColor {
             isCss,
             hasAlpha,
         };
-        return new OklchColor(coords, alpha, format, source);
+        return new OklchColor(coords, alpha, format, source, achromatic(coords[1]));
     }
     static tryFromString(css) {
         try {
@@ -8007,10 +8049,16 @@ class OklchColor {
         const next = [coords[0], coords[1], coords[2]];
         next[index] = displayValue / MODE_CHANNELS[mode][index].scale;
         const k = convert(next, sid, 'oklch');
-        return new OklchColor([num(k[0]), num(k[1]), num(k[2])], alpha, this.format, null);
+        const c = [num(k[0]), num(k[1]), num(k[2])];
+        // Setting a hue channel is a choice; so is giving the colour chroma (its
+        // hue now shows). Anything else on a grey leaves the hue as unchosen.
+        const powerless = this.huePowerless &&
+            MODE_CHANNELS[mode][index].key !== 'h' &&
+            achromatic(c[1]);
+        return new OklchColor(c, alpha, this.format, null, powerless);
     }
     withAlpha(alpha) {
-        return new OklchColor(this.oklch(), alpha, { ...this.format, hasAlpha: true }, null);
+        return new OklchColor(this.oklch(), alpha, { ...this.format, hasAlpha: true }, null, this.huePowerless);
     }
     /** Whether the bound value carries an alpha channel (drives the alpha UI). */
     get hasAlpha() {
@@ -8049,11 +8097,69 @@ class OklchColor {
             isHex: mode === 'hex',
             isCss: mode === 'css',
             hasAlpha: this.format.hasAlpha,
-        }, null);
+        }, null, this.huePowerless);
     }
-    /** New colour with the area plane's fixed hue (OKLCH H) set to `hue` (degrees). */
-    withAreaHue(hue) {
-        return new OklchColor([this.coords[0], this.coords[1], num(hue)], this.alpha, this.format, null);
+    /** OKLCH hue (degrees) — the fixed axis of the locked L×C area plane. */
+    areaHue() {
+        return this.coords[2];
+    }
+    /**
+     * New colour with the area plane's fixed hue (OKLCH H) set to `hue` (degrees).
+     *
+     * With `gamut` (the plane's stretch gamut), chroma is rescaled so the colour
+     * keeps its *position on the plane*: the same fraction of the row's chroma
+     * ceiling at the new hue as at the old. The gamut's edge moves a lot with hue
+     * (P3 at L 0.5 spans ~0.12 at hue 220 to ~0.28 at 300), so holding chroma
+     * constant would slide the thumb sideways — and off the edge into colours the
+     * plane can't show — on every hue drag. A colour already past the edge keeps
+     * the same ratio past it (nothing is clamped). Without `gamut`, chroma is held
+     * as is.
+     */
+    withAreaHue(hue, gamut) {
+        const [L, C, H] = this.coords;
+        const h = num(hue);
+        let c = C;
+        if (gamut !== undefined) {
+            const was = maxChroma(L, H, gamut);
+            c = was > 0 ? (C / was) * maxChroma(L, h, gamut) : 0;
+        }
+        return this.withHue(h, c, null);
+    }
+    /** Copy with hue `h` (and chroma `c`); the hue counts as chosen unless the
+     *  caller says it is still `powerless` (inherited from another unchosen grey). */
+    withHue(h, c, source, powerless = false) {
+        return new OklchColor([this.coords[0], c, h], this.alpha, this.format, source, powerless);
+    }
+    /** Achromatic: chroma below the powerless threshold, so the hue carries no
+     *  colour information. */
+    get isAchromatic() {
+        return achromatic(this.coords[1]);
+    }
+    /**
+     * Whether the hue is parser noise rather than anything chosen. `#808080`
+     * parses to an arbitrary hue; that stays "unchosen" through edits that don't
+     * touch hue (alpha, format, a typed re-entry) and is settled the moment a hue
+     * is set — by the plane or hue strip, a hue channel, or `withRetainedHue`.
+     * The binding and the text fields use this to hand a fresh grey the hue the
+     * picker is already on, so the plane never jumps to noise.
+     */
+    get hueIsPowerless() {
+        return this.huePowerless;
+    }
+    /** Same colour with the (powerless) hue replaced by `hue`. Keeps the verbatim
+     *  source, so `serialize()` still returns the string the binding supplied —
+     *  for an achromatic colour the hue changes nothing about the colour itself. */
+    withRetainedHue(hue) {
+        return this.withHue(num(hue), this.coords[1], this.source);
+    }
+    /** If this colour's hue is powerless, take `prev`'s hue (the one the picker
+     *  is on); otherwise unchanged. For a colour typed into a text field. If
+     *  `prev`'s hue was itself never chosen, the result stays unchosen too — the
+     *  plane holds still, but nothing records that noise as a real hue. */
+    inheritHue(prev) {
+        return this.huePowerless
+            ? this.withHue(prev.areaHue(), this.coords[1], this.source, prev.huePowerless)
+            : this;
     }
     /** Adopt coords from an arbitrary CSS string (e.g. the area picker's onChange). */
     withCss(css) {
@@ -8062,7 +8168,7 @@ class OklchColor {
             return this;
         }
         const k = convert(p.coords, p.space, 'oklch');
-        return new OklchColor([num(k[0]), num(k[1]), num(k[2])], this.alpha, this.format, null);
+        return new OklchColor([num(k[0]), num(k[1]), num(k[2])], this.alpha, this.format, null, false);
     }
     // ---- Misc ---------------------------------------------------------------
     inGamut(gamut) {
@@ -8130,10 +8236,6 @@ class OklchColor {
 
 /** Gradient is rasterised at 1/4 of the backing resolution, then scaled up. */
 const SUBSAMPLE = 4;
-/** Upper bound for the chroma bisection — beyond every physical display gamut. */
-const CHROMA_CEILING = 0.5;
-/** Bisection steps: 16 ⇒ ~0.5/2¹⁶ ≈ 8e-6 chroma resolution. */
-const BISECT_STEPS = 16;
 /** Samples in the per-lightness chroma curve handed back for thumb placement. */
 const CURVE_SAMPLES = 128;
 /** Gamut nesting by chroma extent, narrow → wide. The plane's stretch gamut is
@@ -8159,30 +8261,9 @@ const BOUNDARIES = [
     { space: 'srgb', color: 'rgba(255,255,255,0.7)', width: 1.5, dash: [] },
     { space: 'p3', color: 'rgba(255,255,255,0.4)', width: 1, dash: [3, 3] },
 ];
-/**
- * Largest in-gamut chroma at lightness `L`, by bisecting a prebuilt per-hue
- * `probe` (see `oklchGamutProbe`). Returns 0 when the gamut doesn't even contain
- * the achromatic point at this lightness (so the row contributes nothing). The
- * probe is built once per hue/gamut and reused across every lightness — that
- * reuse is the bulk of the per-frame saving.
- */
-function maxChroma(probe, L, ceiling = CHROMA_CEILING) {
-    if (!probe(L, 0)) {
-        return 0;
-    }
-    let inside = 0;
-    let outside = ceiling;
-    for (let i = 0; i < BISECT_STEPS; i++) {
-        const mid = (inside + outside) / 2;
-        if (probe(L, mid)) {
-            inside = mid;
-        }
-        else {
-            outside = mid;
-        }
-    }
-    return inside;
-}
+// `maxChromaOf` (core/gamut) takes a prebuilt per-hue probe: it's built once per
+// hue/gamut here and reused across every lightness — that reuse is the bulk of
+// the per-frame saving.
 /** Sample an evenly-spaced [0,1]-indexed curve at `t`, linearly interpolated. */
 function sampleCurve(curve, t) {
     const last = curve.length - 1;
@@ -8207,7 +8288,7 @@ function traceBoundary(spec, hue, stretch, W, H, dpr) {
         // and P3 inside Rec2020) lands inside it. Tying the search to `edge` keeps
         // the ratio ordered and bounded even at the near-black/near-white extremes,
         // where `edge` itself is tiny and an independent search is noisy.
-        const c = maxChroma(probe, L, edge);
+        const c = maxChromaOf(probe, L, edge);
         if (c <= 0) {
             continue; // gamut empty at this lightness
         }
@@ -8237,7 +8318,7 @@ function computeArea(req) {
     const stretchProbe = oklchGamutProbe(req.hue, req.stretch);
     const stretch = new Float64Array(CURVE_SAMPLES);
     for (let i = 0; i < CURVE_SAMPLES; i++) {
-        stretch[i] = maxChroma(stretchProbe, i / (CURVE_SAMPLES - 1));
+        stretch[i] = maxChromaOf(stretchProbe, i / (CURVE_SAMPLES - 1));
     }
     // Rasterise the gradient: column x maps to chroma (x/W of the row's stretch
     // max), row y maps to lightness (top = 1).
@@ -8688,31 +8769,40 @@ class AreaController {
     }
 }
 
-/*
- * The hue strip's background: a gradient of OKLCH hues, so position t along
- * the strip is OKLCH hue t·360 — the hue the area plane is locked to.
- * (Tweakpane's native strip is an HSL rainbow PNG; HSL and OKLCH hue angles
- * disagree by 20–30°, so under an OKLCH marker it reads wrong.)
- *
- * Each stop carries the colour's own lightness and chroma, clamped to the
- * plane's edge at that hue — exactly the colour a hue drag lands on, since the
- * drag keeps L and C (`withAreaHue`). Stops every 5° are close enough that the
- * interpolation space between them is immaterial, so the gradient stays plain
- * (no `in oklch`): any browser that parses `oklch()` renders it.
- */
 /** Stop spacing in degrees. */
 const HUE_STEP = 5;
+/** Least fraction of the edge the strip paints at. A grey (or near-grey) would
+ *  otherwise give a flat grey strip with no hue cues to pick from; at this
+ *  floor the hues stay legible while the strip still reads as muted. */
+const STRIP_CHROMA_FLOOR = 0.4;
 const fmt = (v) => Number(v.toFixed(4)).toString();
-/** The strip colour at `hue`: (L, C) clamped to the `gamut` edge at that hue. */
-function hueStripColor(L, C, hue, gamut) {
-    const c = Math.min(C, maxChroma(oklchGamutProbe(hue, gamut), L));
-    return `oklch(${fmt(L)} ${fmt(c)} ${fmt(hue)})`;
+/**
+ * The fraction of the edge the strip paints at for a colour: its chroma as a
+ * fraction of the `gamut` edge at its own hue, clamped to [STRIP_CHROMA_FLOOR,
+ * 1] (the strip only shows what the plane can, and never goes flat grey) and
+ * rounded to 4 dp — so a hue drag, which holds the fraction, yields the same
+ * value at every hue and the strip is never rebuilt mid-drag.
+ */
+function chromaFraction(L, C, hue, gamut) {
+    const edge = maxChroma(L, hue, gamut);
+    if (edge <= 0) {
+        // Unreachable for model values: L is clamped to [0, 1], and even black and
+        // white keep a sliver of edge (the probe's slack). Guards the public
+        // function against 0/0 for an L outside that range.
+        return 0;
+    }
+    const f = Math.max(STRIP_CHROMA_FLOOR, Math.min(1, C / edge));
+    return Number(f.toFixed(4));
+}
+/** The strip colour at `hue`: `fraction` of the `gamut` edge at that hue. */
+function hueStripColor(L, fraction, hue, gamut) {
+    return `oklch(${fmt(L)} ${fmt(fraction * maxChroma(L, hue, gamut))} ${fmt(hue)})`;
 }
 /** The whole strip: a stop every HUE_STEP degrees from 0 to 360. */
-function hueStripGradient(L, C, gamut) {
+function hueStripGradient(L, fraction, gamut) {
     const stops = [];
     for (let h = 0; h <= 360; h += HUE_STEP) {
-        stops.push(`${hueStripColor(L, C, h, gamut)} ${fmt(h / 3.6)}%`);
+        stops.push(`${hueStripColor(L, fraction, h, gamut)} ${fmt(h / 3.6)}%`);
     }
     return `linear-gradient(to right, ${stops.join(', ')})`;
 }
@@ -8739,8 +8829,10 @@ class StripController {
     mode_;
     markerElem_;
     fillElem_;
-    /** `L|C|gamut` the hue gradient was last built for — not hue, so a hue drag
-     *  never rebuilds it. */
+    /** `L|fraction|gamut` the hue gradient was last built for — not hue, and a
+     *  hue drag holds the fraction, so dragging hue never rebuilds it. L is keyed
+     *  at 3 dp so a plane drag only rebuilds when the strip would actually look
+     *  different, not on every pointermove. */
     gradientKey_ = '';
     constructor(doc, config) {
         this.kind_ = config.kind;
@@ -8795,24 +8887,32 @@ class StripController {
         }
         const t = Math.max(0, Math.min(1, point.x / ev.data.bounds.width));
         const c = this.value_.rawValue;
-        // The area is locked to the OKLCH plane, so the hue strip edits OKLCH hue.
+        // The area is locked to the OKLCH plane, so the hue strip edits OKLCH hue —
+        // rescaling chroma to the new hue's ceiling in the plane's gamut, so the
+        // thumb holds its position on the plane instead of sliding off the edge.
         this.value_.rawValue =
-            this.kind_ === 'hue' ? c.withAreaHue(t * 360) : c.withAlpha(t);
+            this.kind_ === 'hue'
+                ? c.withAreaHue(t * 360, areaStretch(this.mode_.rawValue))
+                : c.withAlpha(t);
     }
     refresh_() {
         const c = this.value_.rawValue;
         if (this.kind_ === 'hue') {
-            const [l, ch, h] = c.coordsIn('oklch').coords;
+            const [l0, ch, h] = c.coordsIn('oklch').coords;
             const gamut = areaStretch(this.mode_.rawValue);
-            const key = `${l}|${ch}|${gamut}`;
+            const l = Number(l0.toFixed(3));
+            const f = chromaFraction(l, ch, h, gamut);
+            const key = `${l}|${f}|${gamut}`;
             if (key !== this.gradientKey_) {
                 this.gradientKey_ = key;
-                this.fillElem_.style.background = hueStripGradient(l, ch, gamut);
+                this.fillElem_.style.background = hueStripGradient(l, f, gamut);
             }
             this.markerElem_.style.left = `${h / 3.6}%`;
             // Like native: fill the marker with the strip's own colour at its
-            // position, so it blends in (its white ring makes it visible).
-            this.markerElem_.style.backgroundColor = hueStripColor(l, ch, h, gamut);
+            // position, so it blends in (its white ring makes it visible). Below the
+            // chroma floor that is the strip's floored colour, not the (greyer)
+            // colour itself — the swatch and plane show the real one.
+            this.markerElem_.style.backgroundColor = hueStripColor(l, f, h, gamut);
         }
         else {
             const [l, ch, hh] = c.coordsIn('oklch').coords;
@@ -9026,7 +9126,9 @@ class TextsController {
                 // field. Without it, typing e.g. `oklch(0.5 40000 20)` here would clamp
                 // the model's chroma to 0.5 but still write the nonsense string
                 // through, leaving the binding disagreeing with every input shown.
-                this.value_.rawValue = parsed.asEdited();
+                this.value_.rawValue = parsed
+                    .inheritHue(this.value_.rawValue)
+                    .asEdited();
             }
         });
         return tc;
@@ -9312,12 +9414,15 @@ class ColorController {
                 // `.asEdited()` drops the verbatim source so the result re-serialises
                 // from its clamped coords — an out-of-range entry (e.g. a chroma of
                 // 40000) shows as the clamped value instead of echoing the nonsense.
+                // `.inheritHue()` keeps the plane where it is when a grey is typed
+                // (its parsed hue is noise; the picker's current hue is the real one).
+                const prev = this.value.rawValue;
                 const direct = OklchColor.tryFromString(t);
                 if (direct) {
-                    return direct.asEdited();
+                    return direct.inheritHue(prev).asEdited();
                 }
-                const wrapped = OklchColor.tryFromString(this.value.rawValue.wrapReadout(t));
-                return wrapped ? wrapped.asEdited() : null;
+                const wrapped = OklchColor.tryFromString(prev.wrapReadout(t));
+                return wrapped ? wrapped.inheritHue(prev).asEdited() : null;
             },
             props: ValueMap.fromObject({
                 formatter: (c) => c.readoutString(),
@@ -9380,6 +9485,15 @@ class ColorController {
 }
 
 /**
+ * Last meaningful OKLCH hue written per binding target. A grey has no hue of its
+ * own, so when one is read back from outside — `pane.refresh()`, a preset, the
+ * host app assigning `#808080` — the reader gives it the hue the picker was last
+ * on, and the plane + hue strip stay put instead of jumping to parser noise.
+ * Keyed on the target (reader and writer share it) and weak, so a disposed
+ * binding leaves nothing behind.
+ */
+const lastHue = new WeakMap();
+/**
  * Is the bound value a colour string *on its own*? Deliberately the strict
  * parser, not the model's lenient `OklchColor.isColorString`: that one recovers a
  * colour from surrounding text (a CSS declaration, a quoted value, an
@@ -9416,9 +9530,16 @@ const OklchInputPlugin = createPlugin({
         };
     },
     binding: {
-        reader: (_args) => (exValue) => OklchColor.fromString(String(exValue)),
+        reader: (args) => (exValue) => {
+            const c = OklchColor.fromString(String(exValue));
+            const h = lastHue.get(args.target);
+            return c.hueIsPowerless && h !== undefined ? c.withRetainedHue(h) : c;
+        },
         equals: (a, b) => a.equals(b),
-        writer: (_args) => (target, inValue) => {
+        writer: (args) => (target, inValue) => {
+            if (!inValue.hueIsPowerless) {
+                lastHue.set(args.target, inValue.areaHue());
+            }
             target.write(inValue.serialize());
         },
     },
