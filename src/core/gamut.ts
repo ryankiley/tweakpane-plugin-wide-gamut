@@ -8,11 +8,50 @@
  * uses it for the sRGB swatch / hex fallback), verified by the parity tests.
  */
 import type {Space, Vec3} from './convert.js';
-import {convert} from './convert.js';
+import {convert, oklchGamutProbe} from './convert.js';
 
 // colorjs's default inGamut epsilon — small slack so a colour exactly on the
 // boundary counts as inside.
 const EPSILON = 0.000075;
+
+/** Upper bound for the chroma bisection — beyond every physical display gamut. */
+const CHROMA_CEILING = 0.5;
+/** Bisection steps: 16 ⇒ ~0.5/2¹⁶ ≈ 8e-6 chroma resolution. */
+const BISECT_STEPS = 16;
+
+/**
+ * Largest in-gamut chroma at lightness `L`, by bisecting a prebuilt per-hue
+ * `probe` (see `oklchGamutProbe`). Returns 0 when the gamut doesn't even contain
+ * the achromatic point at this lightness (so the row contributes nothing). Takes
+ * the probe rather than a hue so a caller walking many lightnesses at one hue
+ * builds it once.
+ */
+export function maxChromaOf(
+	probe: (L: number, C: number) => boolean,
+	L: number,
+	ceiling = CHROMA_CEILING,
+): number {
+	if (!probe(L, 0)) {
+		return 0;
+	}
+	let inside = 0;
+	let outside = ceiling;
+	for (let i = 0; i < BISECT_STEPS; i++) {
+		const mid = (inside + outside) / 2;
+		if (probe(L, mid)) {
+			inside = mid;
+		} else {
+			outside = mid;
+		}
+	}
+	return inside;
+}
+
+/** Largest OKLCH chroma inside `gamut` at lightness `L` and hue `hue` (degrees):
+ *  the right edge of the picker plane at that row. */
+export function maxChroma(L: number, hue: number, gamut: Space): number {
+	return maxChromaOf(oklchGamutProbe(hue, gamut), L);
+}
 
 /** Is `coords` (expressed in `space`) inside the `gamut` RGB space? */
 export function inGamut(coords: Vec3, space: Space, gamut: Space): boolean {

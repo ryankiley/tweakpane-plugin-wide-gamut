@@ -13,7 +13,7 @@ import {
 	PointerHandler,
 } from '@tweakpane/core';
 
-import {type EditMode, OklchColor} from './model/color.js';
+import {type EditMode, areaStretch, OklchColor} from './model/color.js';
 
 const cnHpl = ClassName('hpl');
 const cnApl = ClassName('apl');
@@ -91,9 +91,13 @@ export class StripController {
 		}
 		const t = Math.max(0, Math.min(1, point.x / ev.data.bounds.width));
 		const c = this.value_.rawValue;
-		// The area is locked to the OKLCH plane, so the hue strip edits OKLCH hue.
+		// The area is locked to the OKLCH plane, so the hue strip edits OKLCH hue —
+		// rescaling chroma to the new hue's ceiling in the plane's gamut, so the
+		// thumb holds its position on the plane instead of sliding off the edge.
 		this.value_.rawValue =
-			this.kind_ === 'hue' ? c.withAreaHue(t * 360) : c.withAlpha(t);
+			this.kind_ === 'hue'
+				? c.withAreaHue(t * 360, areaStretch(this.mode_.rawValue))
+				: c.withAlpha(t);
 	}
 
 	private refresh_(): void {

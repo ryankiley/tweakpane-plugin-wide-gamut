@@ -72,14 +72,15 @@ export class ColorController implements ValueController<OklchColor, ColorView> {
 				// `.asEdited()` drops the verbatim source so the result re-serialises
 				// from its clamped coords — an out-of-range entry (e.g. a chroma of
 				// 40000) shows as the clamped value instead of echoing the nonsense.
+				// `.inheritHue()` keeps the plane where it is when a grey is typed
+				// (its parsed hue is noise; the picker's current hue is the real one).
+				const prev = this.value.rawValue;
 				const direct = OklchColor.tryFromString(t);
 				if (direct) {
-					return direct.asEdited();
+					return direct.inheritHue(prev).asEdited();
 				}
-				const wrapped = OklchColor.tryFromString(
-					this.value.rawValue.wrapReadout(t),
-				);
-				return wrapped ? wrapped.asEdited() : null;
+				const wrapped = OklchColor.tryFromString(prev.wrapReadout(t));
+				return wrapped ? wrapped.inheritHue(prev).asEdited() : null;
 			},
 			props: ValueMap.fromObject({
 				formatter: (c: OklchColor) => c.readoutString(),

@@ -248,7 +248,9 @@ export class TextsController {
 				// field. Without it, typing e.g. `oklch(0.5 40000 20)` here would clamp
 				// the model's chroma to 0.5 but still write the nonsense string
 				// through, leaving the binding disagreeing with every input shown.
-				this.value_.rawValue = parsed.asEdited();
+				this.value_.rawValue = parsed
+					.inheritHue(this.value_.rawValue)
+					.asEdited();
 			}
 		});
 		return tc;
