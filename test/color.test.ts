@@ -387,3 +387,20 @@ test('withRetainedHue swaps the hue but serialises the verbatim source', () => {
 		.withCss('oklch(0.59987 0 200)');
 	assert.ok(c.equals(dragged));
 });
+
+test('a non-finite alpha or hue from a dead drag is a no-op, never NaN', () => {
+	// The popup can collapse mid-drag (Escape); Tweakpane's PointerHandler then
+	// reports a zero-width strip, and `x / 0` reaches the model. Before, CSS
+	// mode wrote `rgba(0, 255, 0, NaN)` and hex/RGB dropped the alpha; the hue
+	// strip variant landed on hue 0.
+	const c = OklchColor.fromString('#00ff0080');
+	for (const bad of [NaN, Infinity, -Infinity]) {
+		assert.equal(c.withAlpha(bad), c);
+		assert.equal(c.withAreaHue(bad, 'srgb'), c);
+		assert.equal(c.withAreaHue(bad), c);
+	}
+	assert.equal(c.withAlpha(NaN).withFormat('css').serialize(), 'rgba(0, 255, 0, 0.5)');
+	assert.equal(c.withAlpha(NaN).serialize(), '#00ff0080');
+	const h = c.withAreaHue(NaN).coordsIn('oklch').coords[2];
+	approx(h, c.coordsIn('oklch').coords[2]);
+});

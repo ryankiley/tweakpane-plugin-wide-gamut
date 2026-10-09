@@ -132,3 +132,20 @@ test('parse rejects non-colours and malformed channel counts', () => {
 		assert.equal(parse(v), null, `"${v}" should be null`);
 	}
 });
+
+test('parse rejects a long non-number in linear time (no regex backtracking)', () => {
+	// `\d+\.?\d*` let `\d+` and `\d*` share the digits, so a token like
+	// `111…x` backtracked quadratically: 64k digits took ~2 s, and `accept`
+	// runs the parser on any bound string. The bound is loose on purpose (a
+	// loaded machine must not fail it); the quadratic version takes seconds.
+	const digits = '1'.repeat(100_000);
+	const t0 = performance.now();
+	assert.equal(parse(`rgb(${digits}x 0 0)`), null);
+	assert.equal(parse(`oklch(0.5 0.1 ${digits}xdeg)`), null);
+	assert.equal(parse(`rgb(${digits}.${digits}. 0 0)`), null);
+	assert.ok(performance.now() - t0 < 500, 'parse took too long');
+	// And the fix did not narrow what a number is.
+	assert.notEqual(parse('rgb(255. 0 0)'), null);
+	assert.notEqual(parse('rgb(.5e2 0 0)'), null);
+	assert.notEqual(parse('rgb(+1e+2 -0.0 0)'), null);
+});

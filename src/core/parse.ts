@@ -32,8 +32,11 @@ const COLOR_FN_SPACES: Record<string, Space> = {
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
 
-// A bare number: optional sign, digits/decimal, optional exponent.
-const NUMBER = String.raw`[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?`;
+// A bare number: optional sign, digits/decimal, optional exponent. The
+// fraction is `(?:\.\d*)?`, not `\.?\d*`: with the latter, `\d+` and `\d*` can
+// both claim the same digits, so a long non-number like `111…x` backtracks
+// quadratically (64k digits ≈ 2 s), and `accept` runs this on any bound string.
+const NUMBER = String.raw`[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?`;
 const NUMBER_RE = new RegExp(`^${NUMBER}$`);
 // A hue/angle is a number with an optional angle unit — never a percentage.
 const ANGLE_RE = new RegExp(`^(${NUMBER})(deg|grad|rad|turn)?$`);

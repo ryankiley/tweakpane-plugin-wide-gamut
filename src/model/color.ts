@@ -200,8 +200,10 @@ function num(x: number | null | undefined): number {
 	return x == null || Number.isNaN(x) ? 0 : x;
 }
 
+/** Clamp to [lo, hi]; NaN (which Math.min/max would pass through) lands on `lo`,
+ *  so the construction choke point never stores a NaN coordinate or alpha. */
 function clamp(x: number, lo: number, hi: number): number {
-	return Math.min(hi, Math.max(lo, x));
+	return Number.isNaN(x) ? lo : Math.min(hi, Math.max(lo, x));
 }
 
 /** Does the engine accept this exact string as a colour? */
@@ -546,6 +548,12 @@ export class OklchColor {
 	}
 
 	withAlpha(alpha: number): OklchColor {
+		// A non-finite alpha is never a choice (a strip event with no layout box,
+		// a bad caller) — in every output format it would either print as `NaN`
+		// or silently drop the alpha, so it leaves the colour alone.
+		if (!Number.isFinite(alpha)) {
+			return this;
+		}
 		return new OklchColor(
 			this.oklch(),
 			alpha,
@@ -621,8 +629,13 @@ export class OklchColor {
 	 * as is.
 	 */
 	withAreaHue(hue: number, gamut?: Space): OklchColor {
+		// Same as withAlpha: a non-finite hue would land on hue 0 (green → pink),
+		// and it is never a choice, so it is a no-op.
+		if (!Number.isFinite(hue)) {
+			return this;
+		}
 		const [L, C, H] = this.coords;
-		const h = num(hue);
+		const h = hue;
 		let c = C;
 		if (gamut !== undefined) {
 			const was = maxChroma(L, H, gamut);
